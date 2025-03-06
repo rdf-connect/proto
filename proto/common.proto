@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package rdfc;
+
+message Error { string cause = 1; }
+
+message Close { string channel = 1; }
+
+message Message {
+  string channel = 1;
+  bytes data = 2;
+}
+
+message Id { uint64 id = 1; }
+
+message DataChunk { bytes data = 1; }
+
+message StreamMessage {
+  Id id = 1;
+  string channel = 2;
+}

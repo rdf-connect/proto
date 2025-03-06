@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package rdfc;
+
+import "google/protobuf/empty.proto";
+
+import "common.proto";
+import "log.proto";
+import "orchestrator.proto";
+import "runner.proto";
+
+service Runner {
+  rpc connect(stream OrchestratorMessage) returns (stream RunnerMessage);
+  rpc sendStreamMessage(stream DataChunk) returns (stream Id);
+  rpc receiveStreamMessage(Id) returns (stream DataChunk);
+  rpc logStream(stream LogMessage) returns (google.protobuf.Empty);
+}

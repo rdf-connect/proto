@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package rdfc;
+
+import "common.proto";
+import "google/protobuf/empty.proto";
+
+message Processor {
+  /* The URI of the Processor. */
+  string uri = 1;
+  /* The processor configuration, in JSON-LD */
+  string config = 2;
+  /* Processor arguments, in JSON-LD */
+  string arguments = 3;
+}
+
+message RunnerMessage {
+  oneof inner {
+    Processor proc = 1;
+    google.protobuf.Empty start = 2;
+    Message msg = 3;
+    Close close = 4;
+    StreamMessage streamMsg = 5;
+  }
+}

@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package rdfc;
+
+message LogMessage {
+  string level = 1;
+  string msg = 2;
+  repeated string entities = 3;
+  repeated string aliases = 4;
+}
