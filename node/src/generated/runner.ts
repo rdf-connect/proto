@@ -25,7 +25,11 @@ export interface RunnerMessage {
   start?: Empty | undefined;
   msg?: Message | undefined;
   close?: Close | undefined;
-  streamMsg?: StreamMessage | undefined;
+  streamMsg?:
+    | StreamMessage
+    | undefined;
+  /** The full pipeline in Turle including all SHACL shapes and found information */
+  pipeline?: string | undefined;
 }
 
 function createBaseProcessor(): Processor {
@@ -121,7 +125,14 @@ export const Processor: MessageFns<Processor> = {
 };
 
 function createBaseRunnerMessage(): RunnerMessage {
-  return { proc: undefined, start: undefined, msg: undefined, close: undefined, streamMsg: undefined };
+  return {
+    proc: undefined,
+    start: undefined,
+    msg: undefined,
+    close: undefined,
+    streamMsg: undefined,
+    pipeline: undefined,
+  };
 }
 
 export const RunnerMessage: MessageFns<RunnerMessage> = {
@@ -140,6 +151,9 @@ export const RunnerMessage: MessageFns<RunnerMessage> = {
     }
     if (message.streamMsg !== undefined) {
       StreamMessage.encode(message.streamMsg, writer.uint32(42).fork()).join();
+    }
+    if (message.pipeline !== undefined) {
+      writer.uint32(50).string(message.pipeline);
     }
     return writer;
   },
@@ -191,6 +205,14 @@ export const RunnerMessage: MessageFns<RunnerMessage> = {
           message.streamMsg = StreamMessage.decode(reader, reader.uint32());
           continue;
         }
+        case 6: {
+          if (tag !== 50) {
+            break;
+          }
+
+          message.pipeline = reader.string();
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -207,6 +229,7 @@ export const RunnerMessage: MessageFns<RunnerMessage> = {
       msg: isSet(object.msg) ? Message.fromJSON(object.msg) : undefined,
       close: isSet(object.close) ? Close.fromJSON(object.close) : undefined,
       streamMsg: isSet(object.streamMsg) ? StreamMessage.fromJSON(object.streamMsg) : undefined,
+      pipeline: isSet(object.pipeline) ? globalThis.String(object.pipeline) : undefined,
     };
   },
 
@@ -227,6 +250,9 @@ export const RunnerMessage: MessageFns<RunnerMessage> = {
     if (message.streamMsg !== undefined) {
       obj.streamMsg = StreamMessage.toJSON(message.streamMsg);
     }
+    if (message.pipeline !== undefined) {
+      obj.pipeline = message.pipeline;
+    }
     return obj;
   },
 
@@ -242,6 +268,7 @@ export const RunnerMessage: MessageFns<RunnerMessage> = {
     message.streamMsg = (object.streamMsg !== undefined && object.streamMsg !== null)
       ? StreamMessage.fromPartial(object.streamMsg)
       : undefined;
+    message.pipeline = object.pipeline ?? undefined;
     return message;
   },
 };
