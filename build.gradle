@@ -1,7 +1,12 @@
 plugins {
     id 'java'
+    id 'maven-publish'
     id 'com.google.protobuf' version '0.9.4'
 }
+
+
+group = "io.github.rdf-connect"
+version = "0.0.3"
 
 repositories {
     mavenCentral()
@@ -47,3 +52,14 @@ java {
     }
 }
 
+publishing {
+    publications {
+        maven(MavenPublication) {
+            groupId = project.group
+            artifactId = "proto"
+            version = project.version
+
+            from components.java
+        }
+    }
+}
