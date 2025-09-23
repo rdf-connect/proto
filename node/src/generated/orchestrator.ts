@@ -6,7 +6,7 @@
 
 /* eslint-disable */
 import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
-import { Close, Error, Message, StreamMessage } from "./common";
+import { Close, Error, Message, MessageProcessed } from "./common";
 
 export const protobufPackage = "rdfc";
 
@@ -26,7 +26,7 @@ export interface OrchestratorMessage {
   close?: Close | undefined;
   identify?: Identify | undefined;
   msg?: Message | undefined;
-  streamMsg?: StreamMessage | undefined;
+  processed?: MessageProcessed | undefined;
 }
 
 function createBaseProcessorInit(): ProcessorInit {
@@ -164,7 +164,7 @@ export const Identify: MessageFns<Identify> = {
 };
 
 function createBaseOrchestratorMessage(): OrchestratorMessage {
-  return { init: undefined, close: undefined, identify: undefined, msg: undefined, streamMsg: undefined };
+  return { init: undefined, close: undefined, identify: undefined, msg: undefined, processed: undefined };
 }
 
 export const OrchestratorMessage: MessageFns<OrchestratorMessage> = {
@@ -181,8 +181,8 @@ export const OrchestratorMessage: MessageFns<OrchestratorMessage> = {
     if (message.msg !== undefined) {
       Message.encode(message.msg, writer.uint32(34).fork()).join();
     }
-    if (message.streamMsg !== undefined) {
-      StreamMessage.encode(message.streamMsg, writer.uint32(42).fork()).join();
+    if (message.processed !== undefined) {
+      MessageProcessed.encode(message.processed, writer.uint32(42).fork()).join();
     }
     return writer;
   },
@@ -231,7 +231,7 @@ export const OrchestratorMessage: MessageFns<OrchestratorMessage> = {
             break;
           }
 
-          message.streamMsg = StreamMessage.decode(reader, reader.uint32());
+          message.processed = MessageProcessed.decode(reader, reader.uint32());
           continue;
         }
       }
@@ -249,7 +249,7 @@ export const OrchestratorMessage: MessageFns<OrchestratorMessage> = {
       close: isSet(object.close) ? Close.fromJSON(object.close) : undefined,
       identify: isSet(object.identify) ? Identify.fromJSON(object.identify) : undefined,
       msg: isSet(object.msg) ? Message.fromJSON(object.msg) : undefined,
-      streamMsg: isSet(object.streamMsg) ? StreamMessage.fromJSON(object.streamMsg) : undefined,
+      processed: isSet(object.processed) ? MessageProcessed.fromJSON(object.processed) : undefined,
     };
   },
 
@@ -267,8 +267,8 @@ export const OrchestratorMessage: MessageFns<OrchestratorMessage> = {
     if (message.msg !== undefined) {
       obj.msg = Message.toJSON(message.msg);
     }
-    if (message.streamMsg !== undefined) {
-      obj.streamMsg = StreamMessage.toJSON(message.streamMsg);
+    if (message.processed !== undefined) {
+      obj.processed = MessageProcessed.toJSON(message.processed);
     }
     return obj;
   },
@@ -286,8 +286,8 @@ export const OrchestratorMessage: MessageFns<OrchestratorMessage> = {
       ? Identify.fromPartial(object.identify)
       : undefined;
     message.msg = (object.msg !== undefined && object.msg !== null) ? Message.fromPartial(object.msg) : undefined;
-    message.streamMsg = (object.streamMsg !== undefined && object.streamMsg !== null)
-      ? StreamMessage.fromPartial(object.streamMsg)
+    message.processed = (object.processed !== undefined && object.processed !== null)
+      ? MessageProcessed.fromPartial(object.processed)
       : undefined;
     return message;
   },

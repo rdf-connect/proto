@@ -5,6 +5,7 @@
 // source: service.proto
 
 /* eslint-disable */
+import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
 import {
   type CallOptions,
   ChannelCredentials,
@@ -21,13 +22,189 @@ import {
   type ServiceError,
   type UntypedServiceImplementation,
 } from "@grpc/grpc-js";
-import { DataChunk, Id } from "./common";
+import { DataChunk, StreamChunk } from "./common";
 import { Empty } from "./google/protobuf/empty";
-import { LogMessage } from "./log";
 import { OrchestratorMessage } from "./orchestrator";
 import { RunnerMessage } from "./runner";
 
 export const protobufPackage = "rdfc";
+
+export interface Id {
+  id: number;
+}
+
+export interface LogMessage {
+  level: string;
+  msg: string;
+  entities: string[];
+  aliases: string[];
+}
+
+function createBaseId(): Id {
+  return { id: 0 };
+}
+
+export const Id: MessageFns<Id> = {
+  encode(message: Id, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.id !== 0) {
+      writer.uint32(8).uint32(message.id);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): Id {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseId();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.id = reader.uint32();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): Id {
+    return { id: isSet(object.id) ? globalThis.Number(object.id) : 0 };
+  },
+
+  toJSON(message: Id): unknown {
+    const obj: any = {};
+    if (message.id !== 0) {
+      obj.id = Math.round(message.id);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<Id>, I>>(base?: I): Id {
+    return Id.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<Id>, I>>(object: I): Id {
+    const message = createBaseId();
+    message.id = object.id ?? 0;
+    return message;
+  },
+};
+
+function createBaseLogMessage(): LogMessage {
+  return { level: "", msg: "", entities: [], aliases: [] };
+}
+
+export const LogMessage: MessageFns<LogMessage> = {
+  encode(message: LogMessage, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.level !== "") {
+      writer.uint32(10).string(message.level);
+    }
+    if (message.msg !== "") {
+      writer.uint32(18).string(message.msg);
+    }
+    for (const v of message.entities) {
+      writer.uint32(26).string(v!);
+    }
+    for (const v of message.aliases) {
+      writer.uint32(34).string(v!);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): LogMessage {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseLogMessage();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.level = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.msg = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.entities.push(reader.string());
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.aliases.push(reader.string());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): LogMessage {
+    return {
+      level: isSet(object.level) ? globalThis.String(object.level) : "",
+      msg: isSet(object.msg) ? globalThis.String(object.msg) : "",
+      entities: globalThis.Array.isArray(object?.entities) ? object.entities.map((e: any) => globalThis.String(e)) : [],
+      aliases: globalThis.Array.isArray(object?.aliases) ? object.aliases.map((e: any) => globalThis.String(e)) : [],
+    };
+  },
+
+  toJSON(message: LogMessage): unknown {
+    const obj: any = {};
+    if (message.level !== "") {
+      obj.level = message.level;
+    }
+    if (message.msg !== "") {
+      obj.msg = message.msg;
+    }
+    if (message.entities?.length) {
+      obj.entities = message.entities;
+    }
+    if (message.aliases?.length) {
+      obj.aliases = message.aliases;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<LogMessage>, I>>(base?: I): LogMessage {
+    return LogMessage.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<LogMessage>, I>>(object: I): LogMessage {
+    const message = createBaseLogMessage();
+    message.level = object.level ?? "";
+    message.msg = object.msg ?? "";
+    message.entities = object.entities?.map((e) => e) || [];
+    message.aliases = object.aliases?.map((e) => e) || [];
+    return message;
+  },
+};
 
 export type RunnerService = typeof RunnerService;
 export const RunnerService = {
@@ -44,8 +221,8 @@ export const RunnerService = {
     path: "/rdfc.Runner/sendStreamMessage",
     requestStream: true,
     responseStream: true,
-    requestSerialize: (value: DataChunk) => Buffer.from(DataChunk.encode(value).finish()),
-    requestDeserialize: (value: Buffer) => DataChunk.decode(value),
+    requestSerialize: (value: StreamChunk) => Buffer.from(StreamChunk.encode(value).finish()),
+    requestDeserialize: (value: Buffer) => StreamChunk.decode(value),
     responseSerialize: (value: Id) => Buffer.from(Id.encode(value).finish()),
     responseDeserialize: (value: Buffer) => Id.decode(value),
   },
@@ -71,7 +248,7 @@ export const RunnerService = {
 
 export interface RunnerServer extends UntypedServiceImplementation {
   connect: handleBidiStreamingCall<OrchestratorMessage, RunnerMessage>;
-  sendStreamMessage: handleBidiStreamingCall<DataChunk, Id>;
+  sendStreamMessage: handleBidiStreamingCall<StreamChunk, Id>;
   receiveStreamMessage: handleServerStreamingCall<Id, DataChunk>;
   logStream: handleClientStreamingCall<LogMessage, Empty>;
 }
@@ -80,9 +257,9 @@ export interface RunnerClient extends Client {
   connect(): ClientDuplexStream<OrchestratorMessage, RunnerMessage>;
   connect(options: Partial<CallOptions>): ClientDuplexStream<OrchestratorMessage, RunnerMessage>;
   connect(metadata: Metadata, options?: Partial<CallOptions>): ClientDuplexStream<OrchestratorMessage, RunnerMessage>;
-  sendStreamMessage(): ClientDuplexStream<DataChunk, Id>;
-  sendStreamMessage(options: Partial<CallOptions>): ClientDuplexStream<DataChunk, Id>;
-  sendStreamMessage(metadata: Metadata, options?: Partial<CallOptions>): ClientDuplexStream<DataChunk, Id>;
+  sendStreamMessage(): ClientDuplexStream<StreamChunk, Id>;
+  sendStreamMessage(options: Partial<CallOptions>): ClientDuplexStream<StreamChunk, Id>;
+  sendStreamMessage(metadata: Metadata, options?: Partial<CallOptions>): ClientDuplexStream<StreamChunk, Id>;
   receiveStreamMessage(request: Id, options?: Partial<CallOptions>): ClientReadableStream<DataChunk>;
   receiveStreamMessage(
     request: Id,
@@ -110,3 +287,28 @@ export const RunnerClient = makeGenericClientConstructor(RunnerService, "rdfc.Ru
   service: typeof RunnerService;
   serviceName: string;
 };
+
+type Builtin = Date | Function | Uint8Array | string | number | boolean | undefined;
+
+export type DeepPartial<T> = T extends Builtin ? T
+  : T extends globalThis.Array<infer U> ? globalThis.Array<DeepPartial<U>>
+  : T extends ReadonlyArray<infer U> ? ReadonlyArray<DeepPartial<U>>
+  : T extends {} ? { [K in keyof T]?: DeepPartial<T[K]> }
+  : Partial<T>;
+
+type KeysOfUnion<T> = T extends T ? keyof T : never;
+export type Exact<P, I extends P> = P extends Builtin ? P
+  : P & { [K in keyof P]: Exact<P[K], I[K]> } & { [K in Exclude<keyof I, KeysOfUnion<P>>]: never };
+
+function isSet(value: any): boolean {
+  return value !== null && value !== undefined;
+}
+
+export interface MessageFns<T> {
+  encode(message: T, writer?: BinaryWriter): BinaryWriter;
+  decode(input: BinaryReader | Uint8Array, length?: number): T;
+  fromJSON(object: any): T;
+  toJSON(message: T): unknown;
+  create<I extends Exact<DeepPartial<T>, I>>(base?: I): T;
+  fromPartial<I extends Exact<DeepPartial<T>, I>>(object: I): T;
+}

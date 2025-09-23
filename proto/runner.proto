@@ -21,7 +21,10 @@ message RunnerMessage {
     Message msg = 3;
     Close close = 4;
     StreamMessage streamMsg = 5;
-    /* The full pipeline in Turle including all SHACL shapes and found information */
+    /* The full pipeline in Turtle including all SHACL shapes and found
+     * information */
     string pipeline = 6;
+
+    MessageProcessed processed = 7;
   }
 }

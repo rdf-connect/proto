@@ -9,13 +9,31 @@ message Close { string channel = 1; }
 message Message {
   string channel = 1;
   bytes data = 2;
+  uint32 tick = 3;
 }
 
-message Id { uint64 id = 1; }
+message StreamIdentify {
+  string channel = 1;
+  uint32 tick = 2;
+  string runner = 3;
+}
+
+message StreamChunk {
+  oneof inner {
+    StreamIdentify id = 1;
+    DataChunk data = 2;
+  }
+}
+
+message MessageProcessed {
+  string uri = 1;
+  uint32 tick = 2;
+}
 
 message DataChunk { bytes data = 1; }
 
 message StreamMessage {
-  Id id = 1;
+  uint32 id = 1;
   string channel = 2;
+  uint32 tick = 3;
 }

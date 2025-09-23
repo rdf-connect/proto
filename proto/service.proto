@@ -5,13 +5,21 @@ package rdfc;
 import "google/protobuf/empty.proto";
 
 import "common.proto";
-import "log.proto";
 import "orchestrator.proto";
 import "runner.proto";
 
+message Id { uint32 id = 1; }
+
+message LogMessage {
+  string level = 1;
+  string msg = 2;
+  repeated string entities = 3;
+  repeated string aliases = 4;
+}
+
 service Runner {
   rpc connect(stream OrchestratorMessage) returns (stream RunnerMessage);
-  rpc sendStreamMessage(stream DataChunk) returns (stream Id);
+  rpc sendStreamMessage(stream StreamChunk) returns (stream Id);
   rpc receiveStreamMessage(Id) returns (stream DataChunk);
   rpc logStream(stream LogMessage) returns (google.protobuf.Empty);
 }

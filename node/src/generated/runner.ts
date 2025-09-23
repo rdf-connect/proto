@@ -6,7 +6,7 @@
 
 /* eslint-disable */
 import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
-import { Close, Message, StreamMessage } from "./common";
+import { Close, Message, MessageProcessed, StreamMessage } from "./common";
 import { Empty } from "./google/protobuf/empty";
 
 export const protobufPackage = "rdfc";
@@ -28,8 +28,12 @@ export interface RunnerMessage {
   streamMsg?:
     | StreamMessage
     | undefined;
-  /** The full pipeline in Turle including all SHACL shapes and found information */
+  /**
+   * The full pipeline in Turtle including all SHACL shapes and found
+   * information
+   */
   pipeline?: string | undefined;
+  processed?: MessageProcessed | undefined;
 }
 
 function createBaseProcessor(): Processor {
@@ -132,6 +136,7 @@ function createBaseRunnerMessage(): RunnerMessage {
     close: undefined,
     streamMsg: undefined,
     pipeline: undefined,
+    processed: undefined,
   };
 }
 
@@ -154,6 +159,9 @@ export const RunnerMessage: MessageFns<RunnerMessage> = {
     }
     if (message.pipeline !== undefined) {
       writer.uint32(50).string(message.pipeline);
+    }
+    if (message.processed !== undefined) {
+      MessageProcessed.encode(message.processed, writer.uint32(58).fork()).join();
     }
     return writer;
   },
@@ -213,6 +221,14 @@ export const RunnerMessage: MessageFns<RunnerMessage> = {
           message.pipeline = reader.string();
           continue;
         }
+        case 7: {
+          if (tag !== 58) {
+            break;
+          }
+
+          message.processed = MessageProcessed.decode(reader, reader.uint32());
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -230,6 +246,7 @@ export const RunnerMessage: MessageFns<RunnerMessage> = {
       close: isSet(object.close) ? Close.fromJSON(object.close) : undefined,
       streamMsg: isSet(object.streamMsg) ? StreamMessage.fromJSON(object.streamMsg) : undefined,
       pipeline: isSet(object.pipeline) ? globalThis.String(object.pipeline) : undefined,
+      processed: isSet(object.processed) ? MessageProcessed.fromJSON(object.processed) : undefined,
     };
   },
 
@@ -253,6 +270,9 @@ export const RunnerMessage: MessageFns<RunnerMessage> = {
     if (message.pipeline !== undefined) {
       obj.pipeline = message.pipeline;
     }
+    if (message.processed !== undefined) {
+      obj.processed = MessageProcessed.toJSON(message.processed);
+    }
     return obj;
   },
 
@@ -269,6 +289,9 @@ export const RunnerMessage: MessageFns<RunnerMessage> = {
       ? StreamMessage.fromPartial(object.streamMsg)
       : undefined;
     message.pipeline = object.pipeline ?? undefined;
+    message.processed = (object.processed !== undefined && object.processed !== null)
+      ? MessageProcessed.fromPartial(object.processed)
+      : undefined;
     return message;
   },
 };

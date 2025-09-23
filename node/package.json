@@ -1,6 +1,6 @@
 {
   "name": "@rdfc/proto",
-  "version": "0.1.2-alpha-1",
+  "version": "0.1.2-alpha-2",
   "description": "RDF-Connect protobuf bindings",
   "main": "lib/index.js",
   "type": "module",
@@ -26,9 +26,9 @@
     "tsc-alias": "^1.8.11",
     "typescript": "^5.8.2"
   },
-  "peerDependencies": {
-    "@grpc/grpc-js": "1.x"
-  },
+    "peerDependencies": {
+        "@grpc/grpc-js": "^1.12.6"
+    },
   "dependencies": {
     "@bufbuild/protobuf": "^2.2.3"
   }

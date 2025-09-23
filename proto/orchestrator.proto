@@ -18,6 +18,6 @@ message OrchestratorMessage {
     Close close = 2;
     Identify identify = 3;
     Message msg = 4;
-    StreamMessage streamMsg = 5;
+    MessageProcessed processed = 5;
   }
 }
