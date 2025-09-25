@@ -144,10 +144,10 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant R as Runner
-    participant L as Logging Service
+    participant O as Orchestrator
 
-    Note over R,L: Continuous Logging
-    R->>L: logStream() - LogMessage(level, msg, entities, aliases)
+    Note over R,O: Continuous Logging
+    R->>O: logStream() - LogMessage(level, msg, entities, aliases)
 ```
 
 ## Service Interface
