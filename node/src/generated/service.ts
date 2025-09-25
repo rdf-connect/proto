@@ -12,11 +12,9 @@ import {
   Client,
   type ClientDuplexStream,
   type ClientOptions,
-  type ClientReadableStream,
   type ClientWritableStream,
   type handleBidiStreamingCall,
   type handleClientStreamingCall,
-  type handleServerStreamingCall,
   makeGenericClientConstructor,
   Metadata,
   type ServiceError,
@@ -29,8 +27,13 @@ import { RunnerMessage } from "./runner";
 
 export const protobufPackage = "rdfc";
 
-export interface Id {
-  id: number;
+/**
+ * Message handling the status of a stream message
+ * Either, identifying the message, or indicating a chunk has been handled
+ */
+export interface StreamControl {
+  id?: number | undefined;
+  processed?: number | undefined;
 }
 
 export interface LogMessage {
@@ -40,22 +43,25 @@ export interface LogMessage {
   aliases: string[];
 }
 
-function createBaseId(): Id {
-  return { id: 0 };
+function createBaseStreamControl(): StreamControl {
+  return { id: undefined, processed: undefined };
 }
 
-export const Id: MessageFns<Id> = {
-  encode(message: Id, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.id !== 0) {
+export const StreamControl: MessageFns<StreamControl> = {
+  encode(message: StreamControl, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.id !== undefined) {
       writer.uint32(8).uint32(message.id);
+    }
+    if (message.processed !== undefined) {
+      writer.uint32(16).uint32(message.processed);
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): Id {
+  decode(input: BinaryReader | Uint8Array, length?: number): StreamControl {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseId();
+    const message = createBaseStreamControl();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -67,6 +73,14 @@ export const Id: MessageFns<Id> = {
           message.id = reader.uint32();
           continue;
         }
+        case 2: {
+          if (tag !== 16) {
+            break;
+          }
+
+          message.processed = reader.uint32();
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -76,24 +90,31 @@ export const Id: MessageFns<Id> = {
     return message;
   },
 
-  fromJSON(object: any): Id {
-    return { id: isSet(object.id) ? globalThis.Number(object.id) : 0 };
+  fromJSON(object: any): StreamControl {
+    return {
+      id: isSet(object.id) ? globalThis.Number(object.id) : undefined,
+      processed: isSet(object.processed) ? globalThis.Number(object.processed) : undefined,
+    };
   },
 
-  toJSON(message: Id): unknown {
+  toJSON(message: StreamControl): unknown {
     const obj: any = {};
-    if (message.id !== 0) {
+    if (message.id !== undefined) {
       obj.id = Math.round(message.id);
+    }
+    if (message.processed !== undefined) {
+      obj.processed = Math.round(message.processed);
     }
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<Id>, I>>(base?: I): Id {
-    return Id.fromPartial(base ?? ({} as any));
+  create<I extends Exact<DeepPartial<StreamControl>, I>>(base?: I): StreamControl {
+    return StreamControl.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<Id>, I>>(object: I): Id {
-    const message = createBaseId();
-    message.id = object.id ?? 0;
+  fromPartial<I extends Exact<DeepPartial<StreamControl>, I>>(object: I): StreamControl {
+    const message = createBaseStreamControl();
+    message.id = object.id ?? undefined;
+    message.processed = object.processed ?? undefined;
     return message;
   },
 };
@@ -223,15 +244,15 @@ export const RunnerService = {
     responseStream: true,
     requestSerialize: (value: StreamChunk) => Buffer.from(StreamChunk.encode(value).finish()),
     requestDeserialize: (value: Buffer) => StreamChunk.decode(value),
-    responseSerialize: (value: Id) => Buffer.from(Id.encode(value).finish()),
-    responseDeserialize: (value: Buffer) => Id.decode(value),
+    responseSerialize: (value: StreamControl) => Buffer.from(StreamControl.encode(value).finish()),
+    responseDeserialize: (value: Buffer) => StreamControl.decode(value),
   },
   receiveStreamMessage: {
     path: "/rdfc.Runner/receiveStreamMessage",
-    requestStream: false,
+    requestStream: true,
     responseStream: true,
-    requestSerialize: (value: Id) => Buffer.from(Id.encode(value).finish()),
-    requestDeserialize: (value: Buffer) => Id.decode(value),
+    requestSerialize: (value: StreamControl) => Buffer.from(StreamControl.encode(value).finish()),
+    requestDeserialize: (value: Buffer) => StreamControl.decode(value),
     responseSerialize: (value: DataChunk) => Buffer.from(DataChunk.encode(value).finish()),
     responseDeserialize: (value: Buffer) => DataChunk.decode(value),
   },
@@ -248,8 +269,8 @@ export const RunnerService = {
 
 export interface RunnerServer extends UntypedServiceImplementation {
   connect: handleBidiStreamingCall<OrchestratorMessage, RunnerMessage>;
-  sendStreamMessage: handleBidiStreamingCall<StreamChunk, Id>;
-  receiveStreamMessage: handleServerStreamingCall<Id, DataChunk>;
+  sendStreamMessage: handleBidiStreamingCall<StreamChunk, StreamControl>;
+  receiveStreamMessage: handleBidiStreamingCall<StreamControl, DataChunk>;
   logStream: handleClientStreamingCall<LogMessage, Empty>;
 }
 
@@ -257,15 +278,15 @@ export interface RunnerClient extends Client {
   connect(): ClientDuplexStream<OrchestratorMessage, RunnerMessage>;
   connect(options: Partial<CallOptions>): ClientDuplexStream<OrchestratorMessage, RunnerMessage>;
   connect(metadata: Metadata, options?: Partial<CallOptions>): ClientDuplexStream<OrchestratorMessage, RunnerMessage>;
-  sendStreamMessage(): ClientDuplexStream<StreamChunk, Id>;
-  sendStreamMessage(options: Partial<CallOptions>): ClientDuplexStream<StreamChunk, Id>;
-  sendStreamMessage(metadata: Metadata, options?: Partial<CallOptions>): ClientDuplexStream<StreamChunk, Id>;
-  receiveStreamMessage(request: Id, options?: Partial<CallOptions>): ClientReadableStream<DataChunk>;
+  sendStreamMessage(): ClientDuplexStream<StreamChunk, StreamControl>;
+  sendStreamMessage(options: Partial<CallOptions>): ClientDuplexStream<StreamChunk, StreamControl>;
+  sendStreamMessage(metadata: Metadata, options?: Partial<CallOptions>): ClientDuplexStream<StreamChunk, StreamControl>;
+  receiveStreamMessage(): ClientDuplexStream<StreamControl, DataChunk>;
+  receiveStreamMessage(options: Partial<CallOptions>): ClientDuplexStream<StreamControl, DataChunk>;
   receiveStreamMessage(
-    request: Id,
-    metadata?: Metadata,
+    metadata: Metadata,
     options?: Partial<CallOptions>,
-  ): ClientReadableStream<DataChunk>;
+  ): ClientDuplexStream<StreamControl, DataChunk>;
   logStream(callback: (error: ServiceError | null, response: Empty) => void): ClientWritableStream<LogMessage>;
   logStream(
     metadata: Metadata,

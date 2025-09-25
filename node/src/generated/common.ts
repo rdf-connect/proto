@@ -35,7 +35,8 @@ export interface StreamChunk {
 }
 
 export interface MessageProcessed {
-  uri: string;
+  channel: string;
+  /** identifying the message that is fully processed */
   tick: number;
 }
 
@@ -44,8 +45,10 @@ export interface DataChunk {
 }
 
 export interface StreamMessage {
+  /** globally identifying this stream message, used with receiveStreamMessage */
   id: number;
   channel: string;
+  /** identifying this message */
   tick: number;
 }
 
@@ -426,13 +429,13 @@ export const StreamChunk: MessageFns<StreamChunk> = {
 };
 
 function createBaseMessageProcessed(): MessageProcessed {
-  return { uri: "", tick: 0 };
+  return { channel: "", tick: 0 };
 }
 
 export const MessageProcessed: MessageFns<MessageProcessed> = {
   encode(message: MessageProcessed, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.uri !== "") {
-      writer.uint32(10).string(message.uri);
+    if (message.channel !== "") {
+      writer.uint32(10).string(message.channel);
     }
     if (message.tick !== 0) {
       writer.uint32(16).uint32(message.tick);
@@ -452,7 +455,7 @@ export const MessageProcessed: MessageFns<MessageProcessed> = {
             break;
           }
 
-          message.uri = reader.string();
+          message.channel = reader.string();
           continue;
         }
         case 2: {
@@ -474,15 +477,15 @@ export const MessageProcessed: MessageFns<MessageProcessed> = {
 
   fromJSON(object: any): MessageProcessed {
     return {
-      uri: isSet(object.uri) ? globalThis.String(object.uri) : "",
+      channel: isSet(object.channel) ? globalThis.String(object.channel) : "",
       tick: isSet(object.tick) ? globalThis.Number(object.tick) : 0,
     };
   },
 
   toJSON(message: MessageProcessed): unknown {
     const obj: any = {};
-    if (message.uri !== "") {
-      obj.uri = message.uri;
+    if (message.channel !== "") {
+      obj.channel = message.channel;
     }
     if (message.tick !== 0) {
       obj.tick = Math.round(message.tick);
@@ -495,7 +498,7 @@ export const MessageProcessed: MessageFns<MessageProcessed> = {
   },
   fromPartial<I extends Exact<DeepPartial<MessageProcessed>, I>>(object: I): MessageProcessed {
     const message = createBaseMessageProcessed();
-    message.uri = object.uri ?? "";
+    message.channel = object.channel ?? "";
     message.tick = object.tick ?? 0;
     return message;
   },

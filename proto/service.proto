@@ -8,7 +8,14 @@ import "common.proto";
 import "orchestrator.proto";
 import "runner.proto";
 
-message Id { uint32 id = 1; }
+// Message handling the status of a stream message
+// Either, identifying the message, or indicating a chunk has been handled
+message StreamControl {
+  oneof inner {
+    uint32 id = 1;
+    uint32 processed = 2;
+  }
+}
 
 message LogMessage {
   string level = 1;
@@ -19,7 +26,7 @@ message LogMessage {
 
 service Runner {
   rpc connect(stream OrchestratorMessage) returns (stream RunnerMessage);
-  rpc sendStreamMessage(stream StreamChunk) returns (stream Id);
-  rpc receiveStreamMessage(Id) returns (stream DataChunk);
+  rpc sendStreamMessage(stream StreamChunk) returns (stream StreamControl);
+  rpc receiveStreamMessage(stream StreamControl) returns (stream DataChunk);
   rpc logStream(stream LogMessage) returns (google.protobuf.Empty);
 }

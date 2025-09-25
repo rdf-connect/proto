@@ -2,6 +2,8 @@
 
 RDF-Connect is a distributed RDF (Resource Description Framework) processing system that enables streaming data processing with real-time orchestration and logging capabilities.
 
+Full specification detailing the implementations can be found on [here](https://rdf-connect.github.io/specification/).
+
 ## Core Capabilities
 
 ### 🚀 **Distributed Processing Architecture**
@@ -60,10 +62,9 @@ RDF-Connect is a distributed RDF (Resource Description Framework) processing sys
 #### `service.proto` - Service Interface
 - `Id`: Simple ID message for stream identification
 - `LogMessage`: Structured logging with levels and entity tracking
+- `StreamControl`: Control messages for stream messages
 - `Runner` Service: Main service interface with 4 RPC methods
 
-#### `log.proto` - Logging Support
-- Logging infrastructure definitions
 
 ## Message Flow Diagrams
 
@@ -116,22 +117,26 @@ sequenceDiagram
     participant O as Orchestrator
     participant R1 as Runner1
 
-    Note over O,R1: Stream Initiation
-    O->>R1: RunnerMessage{streamMsg: StreamMessage(id, channel, tick)}
-
-    Note over O,R1: Stream Identification
+    Note left of R1: Stream Identification
     R1->>O: sendStreamMessage() - StreamChunk{id: StreamIdentify(channel, tick, runner)}
 
-    Note over O,R2: Stream Reception
-    R2->>O: receiveStreamMessage(Id)
+    Note left of O: Stream Initiation
+    O->>R2: RunnerMessage{streamMsg: StreamMessage(id, channel, tick)}
 
-    Note over O,R1: Ready to generate data
-    O->>R1: Sends single Id response
+    Note right of R2: Stream Reception
+    R2->>O: receiveStreamMessage()
+    R2->>O: Sends single Id - StreamControl{id: Id}
 
-    Note over O,R1,R2: Data Streaming
+    Note right of O: Ready to generate data
+    O->>R1: Sends single Id - StreamControl{id: Id}
+
     R1->>R1: Generate data chunks
-    R1->>O: sendStreamMessage() - StreamChunk{data: DataChunk(bytes)}
-    O->>R2: Stream of DataChunk responses
+    loop For Each Chunk
+        R1->>O: sendStream - StreamChunk{data: DataChunk(bytes)}
+        O->>R2: receiveStream - DataChunk(bytes)
+        R2->>O: chunk handled - StreamControl{processed: Empty}
+        O->>R1: chunk handled - StreamControl{processed: Empty}
+    end
 ```
 
 ### Logging Flow
@@ -143,8 +148,6 @@ sequenceDiagram
 
     Note over R,L: Continuous Logging
     R->>L: logStream() - LogMessage(level, msg, entities, aliases)
-    L->>R: Empty acknowledgment
-    Note over R,L: Structured log streaming continues...
 ```
 
 ## Service Interface

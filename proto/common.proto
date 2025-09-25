@@ -26,14 +26,17 @@ message StreamChunk {
 }
 
 message MessageProcessed {
-  string uri = 1;
+  string channel = 1;
+  // identifying the message that is fully processed
   uint32 tick = 2;
 }
 
 message DataChunk { bytes data = 1; }
 
 message StreamMessage {
+  // globally identifying this stream message, used with receiveStreamMessage
   uint32 id = 1;
   string channel = 2;
+  // identifying this message
   uint32 tick = 3;
 }
