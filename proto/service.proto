@@ -8,15 +8,6 @@ import "common.proto";
 import "orchestrator.proto";
 import "runner.proto";
 
-// Message handling the status of a stream message
-// Either, identifying the message, or indicating a chunk has been handled
-message StreamControl {
-  oneof inner {
-    uint32 id = 1;
-    uint32 processed = 2;
-  }
-}
-
 message LogMessage {
   string level = 1;
   string msg = 2;
