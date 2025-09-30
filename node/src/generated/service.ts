@@ -20,21 +20,21 @@ import {
   type ServiceError,
   type UntypedServiceImplementation,
 } from "@grpc/grpc-js";
-import { DataChunk, StreamChunk } from "./common";
+import {
+  Close,
+  DataChunk,
+  Error,
+  MessageProcessed,
+  ReceivingMessage,
+  ReceivingStreamControl,
+  ReceivingStreamMessage,
+  SendingMessage,
+  SendingStreamControl,
+  StreamChunk,
+} from "./common";
 import { Empty } from "./google/protobuf/empty";
-import { OrchestratorMessage } from "./orchestrator";
-import { RunnerMessage } from "./runner";
 
 export const protobufPackage = "rdfc";
-
-/**
- * Message handling the status of a stream message
- * Either, identifying the message, or indicating a chunk has been handled
- */
-export interface StreamControl {
-  id?: number | undefined;
-  processed?: number | undefined;
-}
 
 export interface LogMessage {
   level: string;
@@ -43,81 +43,49 @@ export interface LogMessage {
   aliases: string[];
 }
 
-function createBaseStreamControl(): StreamControl {
-  return { id: undefined, processed: undefined };
+export interface Processor {
+  /** The URI of the Processor. */
+  uri: string;
+  /** The processor configuration, in JSON-LD */
+  config: string;
+  /** Processor arguments, in JSON-LD */
+  arguments: string;
 }
 
-export const StreamControl: MessageFns<StreamControl> = {
-  encode(message: StreamControl, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.id !== undefined) {
-      writer.uint32(8).uint32(message.id);
-    }
-    if (message.processed !== undefined) {
-      writer.uint32(16).uint32(message.processed);
-    }
-    return writer;
-  },
+export interface ToRunner {
+  proc?: Processor | undefined;
+  start?: Empty | undefined;
+  msg?: ReceivingMessage | undefined;
+  close?: Close | undefined;
+  streamMsg?:
+    | ReceivingStreamMessage
+    | undefined;
+  /**
+   * The full pipeline in Turtle including all SHACL shapes and found
+   * information
+   */
+  pipeline?: string | undefined;
+  processed?: MessageProcessed | undefined;
+}
 
-  decode(input: BinaryReader | Uint8Array, length?: number): StreamControl {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseStreamControl();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 8) {
-            break;
-          }
+/** Tells the orchestrator that the processor is initialized */
+export interface ProcessorInitialized {
+  /** The URI of the Processor. */
+  uri: string;
+  error?: Error | undefined;
+}
 
-          message.id = reader.uint32();
-          continue;
-        }
-        case 2: {
-          if (tag !== 16) {
-            break;
-          }
+export interface RunnerIdentify {
+  uri: string;
+}
 
-          message.processed = reader.uint32();
-          continue;
-        }
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(object: any): StreamControl {
-    return {
-      id: isSet(object.id) ? globalThis.Number(object.id) : undefined,
-      processed: isSet(object.processed) ? globalThis.Number(object.processed) : undefined,
-    };
-  },
-
-  toJSON(message: StreamControl): unknown {
-    const obj: any = {};
-    if (message.id !== undefined) {
-      obj.id = Math.round(message.id);
-    }
-    if (message.processed !== undefined) {
-      obj.processed = Math.round(message.processed);
-    }
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<StreamControl>, I>>(base?: I): StreamControl {
-    return StreamControl.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<StreamControl>, I>>(object: I): StreamControl {
-    const message = createBaseStreamControl();
-    message.id = object.id ?? undefined;
-    message.processed = object.processed ?? undefined;
-    return message;
-  },
-};
+export interface FromRunner {
+  initialized?: ProcessorInitialized | undefined;
+  close?: Close | undefined;
+  identify?: RunnerIdentify | undefined;
+  msg?: SendingMessage | undefined;
+  processed?: MessageProcessed | undefined;
+}
 
 function createBaseLogMessage(): LogMessage {
   return { level: "", msg: "", entities: [], aliases: [] };
@@ -227,16 +195,544 @@ export const LogMessage: MessageFns<LogMessage> = {
   },
 };
 
+function createBaseProcessor(): Processor {
+  return { uri: "", config: "", arguments: "" };
+}
+
+export const Processor: MessageFns<Processor> = {
+  encode(message: Processor, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.uri !== "") {
+      writer.uint32(10).string(message.uri);
+    }
+    if (message.config !== "") {
+      writer.uint32(18).string(message.config);
+    }
+    if (message.arguments !== "") {
+      writer.uint32(26).string(message.arguments);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): Processor {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseProcessor();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.uri = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.config = reader.string();
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.arguments = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): Processor {
+    return {
+      uri: isSet(object.uri) ? globalThis.String(object.uri) : "",
+      config: isSet(object.config) ? globalThis.String(object.config) : "",
+      arguments: isSet(object.arguments) ? globalThis.String(object.arguments) : "",
+    };
+  },
+
+  toJSON(message: Processor): unknown {
+    const obj: any = {};
+    if (message.uri !== "") {
+      obj.uri = message.uri;
+    }
+    if (message.config !== "") {
+      obj.config = message.config;
+    }
+    if (message.arguments !== "") {
+      obj.arguments = message.arguments;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<Processor>, I>>(base?: I): Processor {
+    return Processor.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<Processor>, I>>(object: I): Processor {
+    const message = createBaseProcessor();
+    message.uri = object.uri ?? "";
+    message.config = object.config ?? "";
+    message.arguments = object.arguments ?? "";
+    return message;
+  },
+};
+
+function createBaseToRunner(): ToRunner {
+  return {
+    proc: undefined,
+    start: undefined,
+    msg: undefined,
+    close: undefined,
+    streamMsg: undefined,
+    pipeline: undefined,
+    processed: undefined,
+  };
+}
+
+export const ToRunner: MessageFns<ToRunner> = {
+  encode(message: ToRunner, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.proc !== undefined) {
+      Processor.encode(message.proc, writer.uint32(10).fork()).join();
+    }
+    if (message.start !== undefined) {
+      Empty.encode(message.start, writer.uint32(18).fork()).join();
+    }
+    if (message.msg !== undefined) {
+      ReceivingMessage.encode(message.msg, writer.uint32(26).fork()).join();
+    }
+    if (message.close !== undefined) {
+      Close.encode(message.close, writer.uint32(34).fork()).join();
+    }
+    if (message.streamMsg !== undefined) {
+      ReceivingStreamMessage.encode(message.streamMsg, writer.uint32(42).fork()).join();
+    }
+    if (message.pipeline !== undefined) {
+      writer.uint32(50).string(message.pipeline);
+    }
+    if (message.processed !== undefined) {
+      MessageProcessed.encode(message.processed, writer.uint32(58).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ToRunner {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseToRunner();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.proc = Processor.decode(reader, reader.uint32());
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.start = Empty.decode(reader, reader.uint32());
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.msg = ReceivingMessage.decode(reader, reader.uint32());
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.close = Close.decode(reader, reader.uint32());
+          continue;
+        }
+        case 5: {
+          if (tag !== 42) {
+            break;
+          }
+
+          message.streamMsg = ReceivingStreamMessage.decode(reader, reader.uint32());
+          continue;
+        }
+        case 6: {
+          if (tag !== 50) {
+            break;
+          }
+
+          message.pipeline = reader.string();
+          continue;
+        }
+        case 7: {
+          if (tag !== 58) {
+            break;
+          }
+
+          message.processed = MessageProcessed.decode(reader, reader.uint32());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ToRunner {
+    return {
+      proc: isSet(object.proc) ? Processor.fromJSON(object.proc) : undefined,
+      start: isSet(object.start) ? Empty.fromJSON(object.start) : undefined,
+      msg: isSet(object.msg) ? ReceivingMessage.fromJSON(object.msg) : undefined,
+      close: isSet(object.close) ? Close.fromJSON(object.close) : undefined,
+      streamMsg: isSet(object.streamMsg) ? ReceivingStreamMessage.fromJSON(object.streamMsg) : undefined,
+      pipeline: isSet(object.pipeline) ? globalThis.String(object.pipeline) : undefined,
+      processed: isSet(object.processed) ? MessageProcessed.fromJSON(object.processed) : undefined,
+    };
+  },
+
+  toJSON(message: ToRunner): unknown {
+    const obj: any = {};
+    if (message.proc !== undefined) {
+      obj.proc = Processor.toJSON(message.proc);
+    }
+    if (message.start !== undefined) {
+      obj.start = Empty.toJSON(message.start);
+    }
+    if (message.msg !== undefined) {
+      obj.msg = ReceivingMessage.toJSON(message.msg);
+    }
+    if (message.close !== undefined) {
+      obj.close = Close.toJSON(message.close);
+    }
+    if (message.streamMsg !== undefined) {
+      obj.streamMsg = ReceivingStreamMessage.toJSON(message.streamMsg);
+    }
+    if (message.pipeline !== undefined) {
+      obj.pipeline = message.pipeline;
+    }
+    if (message.processed !== undefined) {
+      obj.processed = MessageProcessed.toJSON(message.processed);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ToRunner>, I>>(base?: I): ToRunner {
+    return ToRunner.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ToRunner>, I>>(object: I): ToRunner {
+    const message = createBaseToRunner();
+    message.proc = (object.proc !== undefined && object.proc !== null) ? Processor.fromPartial(object.proc) : undefined;
+    message.start = (object.start !== undefined && object.start !== null) ? Empty.fromPartial(object.start) : undefined;
+    message.msg = (object.msg !== undefined && object.msg !== null)
+      ? ReceivingMessage.fromPartial(object.msg)
+      : undefined;
+    message.close = (object.close !== undefined && object.close !== null) ? Close.fromPartial(object.close) : undefined;
+    message.streamMsg = (object.streamMsg !== undefined && object.streamMsg !== null)
+      ? ReceivingStreamMessage.fromPartial(object.streamMsg)
+      : undefined;
+    message.pipeline = object.pipeline ?? undefined;
+    message.processed = (object.processed !== undefined && object.processed !== null)
+      ? MessageProcessed.fromPartial(object.processed)
+      : undefined;
+    return message;
+  },
+};
+
+function createBaseProcessorInitialized(): ProcessorInitialized {
+  return { uri: "", error: undefined };
+}
+
+export const ProcessorInitialized: MessageFns<ProcessorInitialized> = {
+  encode(message: ProcessorInitialized, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.uri !== "") {
+      writer.uint32(10).string(message.uri);
+    }
+    if (message.error !== undefined) {
+      Error.encode(message.error, writer.uint32(18).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ProcessorInitialized {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseProcessorInitialized();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.uri = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.error = Error.decode(reader, reader.uint32());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ProcessorInitialized {
+    return {
+      uri: isSet(object.uri) ? globalThis.String(object.uri) : "",
+      error: isSet(object.error) ? Error.fromJSON(object.error) : undefined,
+    };
+  },
+
+  toJSON(message: ProcessorInitialized): unknown {
+    const obj: any = {};
+    if (message.uri !== "") {
+      obj.uri = message.uri;
+    }
+    if (message.error !== undefined) {
+      obj.error = Error.toJSON(message.error);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ProcessorInitialized>, I>>(base?: I): ProcessorInitialized {
+    return ProcessorInitialized.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ProcessorInitialized>, I>>(object: I): ProcessorInitialized {
+    const message = createBaseProcessorInitialized();
+    message.uri = object.uri ?? "";
+    message.error = (object.error !== undefined && object.error !== null) ? Error.fromPartial(object.error) : undefined;
+    return message;
+  },
+};
+
+function createBaseRunnerIdentify(): RunnerIdentify {
+  return { uri: "" };
+}
+
+export const RunnerIdentify: MessageFns<RunnerIdentify> = {
+  encode(message: RunnerIdentify, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.uri !== "") {
+      writer.uint32(10).string(message.uri);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): RunnerIdentify {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseRunnerIdentify();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.uri = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): RunnerIdentify {
+    return { uri: isSet(object.uri) ? globalThis.String(object.uri) : "" };
+  },
+
+  toJSON(message: RunnerIdentify): unknown {
+    const obj: any = {};
+    if (message.uri !== "") {
+      obj.uri = message.uri;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<RunnerIdentify>, I>>(base?: I): RunnerIdentify {
+    return RunnerIdentify.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<RunnerIdentify>, I>>(object: I): RunnerIdentify {
+    const message = createBaseRunnerIdentify();
+    message.uri = object.uri ?? "";
+    return message;
+  },
+};
+
+function createBaseFromRunner(): FromRunner {
+  return { initialized: undefined, close: undefined, identify: undefined, msg: undefined, processed: undefined };
+}
+
+export const FromRunner: MessageFns<FromRunner> = {
+  encode(message: FromRunner, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.initialized !== undefined) {
+      ProcessorInitialized.encode(message.initialized, writer.uint32(10).fork()).join();
+    }
+    if (message.close !== undefined) {
+      Close.encode(message.close, writer.uint32(18).fork()).join();
+    }
+    if (message.identify !== undefined) {
+      RunnerIdentify.encode(message.identify, writer.uint32(26).fork()).join();
+    }
+    if (message.msg !== undefined) {
+      SendingMessage.encode(message.msg, writer.uint32(34).fork()).join();
+    }
+    if (message.processed !== undefined) {
+      MessageProcessed.encode(message.processed, writer.uint32(42).fork()).join();
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): FromRunner {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseFromRunner();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.initialized = ProcessorInitialized.decode(reader, reader.uint32());
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.close = Close.decode(reader, reader.uint32());
+          continue;
+        }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.identify = RunnerIdentify.decode(reader, reader.uint32());
+          continue;
+        }
+        case 4: {
+          if (tag !== 34) {
+            break;
+          }
+
+          message.msg = SendingMessage.decode(reader, reader.uint32());
+          continue;
+        }
+        case 5: {
+          if (tag !== 42) {
+            break;
+          }
+
+          message.processed = MessageProcessed.decode(reader, reader.uint32());
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): FromRunner {
+    return {
+      initialized: isSet(object.initialized) ? ProcessorInitialized.fromJSON(object.initialized) : undefined,
+      close: isSet(object.close) ? Close.fromJSON(object.close) : undefined,
+      identify: isSet(object.identify) ? RunnerIdentify.fromJSON(object.identify) : undefined,
+      msg: isSet(object.msg) ? SendingMessage.fromJSON(object.msg) : undefined,
+      processed: isSet(object.processed) ? MessageProcessed.fromJSON(object.processed) : undefined,
+    };
+  },
+
+  toJSON(message: FromRunner): unknown {
+    const obj: any = {};
+    if (message.initialized !== undefined) {
+      obj.initialized = ProcessorInitialized.toJSON(message.initialized);
+    }
+    if (message.close !== undefined) {
+      obj.close = Close.toJSON(message.close);
+    }
+    if (message.identify !== undefined) {
+      obj.identify = RunnerIdentify.toJSON(message.identify);
+    }
+    if (message.msg !== undefined) {
+      obj.msg = SendingMessage.toJSON(message.msg);
+    }
+    if (message.processed !== undefined) {
+      obj.processed = MessageProcessed.toJSON(message.processed);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<FromRunner>, I>>(base?: I): FromRunner {
+    return FromRunner.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<FromRunner>, I>>(object: I): FromRunner {
+    const message = createBaseFromRunner();
+    message.initialized = (object.initialized !== undefined && object.initialized !== null)
+      ? ProcessorInitialized.fromPartial(object.initialized)
+      : undefined;
+    message.close = (object.close !== undefined && object.close !== null) ? Close.fromPartial(object.close) : undefined;
+    message.identify = (object.identify !== undefined && object.identify !== null)
+      ? RunnerIdentify.fromPartial(object.identify)
+      : undefined;
+    message.msg = (object.msg !== undefined && object.msg !== null)
+      ? SendingMessage.fromPartial(object.msg)
+      : undefined;
+    message.processed = (object.processed !== undefined && object.processed !== null)
+      ? MessageProcessed.fromPartial(object.processed)
+      : undefined;
+    return message;
+  },
+};
+
 export type RunnerService = typeof RunnerService;
 export const RunnerService = {
   connect: {
     path: "/rdfc.Runner/connect",
     requestStream: true,
     responseStream: true,
-    requestSerialize: (value: OrchestratorMessage) => Buffer.from(OrchestratorMessage.encode(value).finish()),
-    requestDeserialize: (value: Buffer) => OrchestratorMessage.decode(value),
-    responseSerialize: (value: RunnerMessage) => Buffer.from(RunnerMessage.encode(value).finish()),
-    responseDeserialize: (value: Buffer) => RunnerMessage.decode(value),
+    requestSerialize: (value: FromRunner) => Buffer.from(FromRunner.encode(value).finish()),
+    requestDeserialize: (value: Buffer) => FromRunner.decode(value),
+    responseSerialize: (value: ToRunner) => Buffer.from(ToRunner.encode(value).finish()),
+    responseDeserialize: (value: Buffer) => ToRunner.decode(value),
   },
   sendStreamMessage: {
     path: "/rdfc.Runner/sendStreamMessage",
@@ -244,15 +740,15 @@ export const RunnerService = {
     responseStream: true,
     requestSerialize: (value: StreamChunk) => Buffer.from(StreamChunk.encode(value).finish()),
     requestDeserialize: (value: Buffer) => StreamChunk.decode(value),
-    responseSerialize: (value: StreamControl) => Buffer.from(StreamControl.encode(value).finish()),
-    responseDeserialize: (value: Buffer) => StreamControl.decode(value),
+    responseSerialize: (value: ReceivingStreamControl) => Buffer.from(ReceivingStreamControl.encode(value).finish()),
+    responseDeserialize: (value: Buffer) => ReceivingStreamControl.decode(value),
   },
   receiveStreamMessage: {
     path: "/rdfc.Runner/receiveStreamMessage",
     requestStream: true,
     responseStream: true,
-    requestSerialize: (value: StreamControl) => Buffer.from(StreamControl.encode(value).finish()),
-    requestDeserialize: (value: Buffer) => StreamControl.decode(value),
+    requestSerialize: (value: SendingStreamControl) => Buffer.from(SendingStreamControl.encode(value).finish()),
+    requestDeserialize: (value: Buffer) => SendingStreamControl.decode(value),
     responseSerialize: (value: DataChunk) => Buffer.from(DataChunk.encode(value).finish()),
     responseDeserialize: (value: Buffer) => DataChunk.decode(value),
   },
@@ -268,25 +764,28 @@ export const RunnerService = {
 } as const;
 
 export interface RunnerServer extends UntypedServiceImplementation {
-  connect: handleBidiStreamingCall<OrchestratorMessage, RunnerMessage>;
-  sendStreamMessage: handleBidiStreamingCall<StreamChunk, StreamControl>;
-  receiveStreamMessage: handleBidiStreamingCall<StreamControl, DataChunk>;
+  connect: handleBidiStreamingCall<FromRunner, ToRunner>;
+  sendStreamMessage: handleBidiStreamingCall<StreamChunk, ReceivingStreamControl>;
+  receiveStreamMessage: handleBidiStreamingCall<SendingStreamControl, DataChunk>;
   logStream: handleClientStreamingCall<LogMessage, Empty>;
 }
 
 export interface RunnerClient extends Client {
-  connect(): ClientDuplexStream<OrchestratorMessage, RunnerMessage>;
-  connect(options: Partial<CallOptions>): ClientDuplexStream<OrchestratorMessage, RunnerMessage>;
-  connect(metadata: Metadata, options?: Partial<CallOptions>): ClientDuplexStream<OrchestratorMessage, RunnerMessage>;
-  sendStreamMessage(): ClientDuplexStream<StreamChunk, StreamControl>;
-  sendStreamMessage(options: Partial<CallOptions>): ClientDuplexStream<StreamChunk, StreamControl>;
-  sendStreamMessage(metadata: Metadata, options?: Partial<CallOptions>): ClientDuplexStream<StreamChunk, StreamControl>;
-  receiveStreamMessage(): ClientDuplexStream<StreamControl, DataChunk>;
-  receiveStreamMessage(options: Partial<CallOptions>): ClientDuplexStream<StreamControl, DataChunk>;
+  connect(): ClientDuplexStream<FromRunner, ToRunner>;
+  connect(options: Partial<CallOptions>): ClientDuplexStream<FromRunner, ToRunner>;
+  connect(metadata: Metadata, options?: Partial<CallOptions>): ClientDuplexStream<FromRunner, ToRunner>;
+  sendStreamMessage(): ClientDuplexStream<StreamChunk, ReceivingStreamControl>;
+  sendStreamMessage(options: Partial<CallOptions>): ClientDuplexStream<StreamChunk, ReceivingStreamControl>;
+  sendStreamMessage(
+    metadata: Metadata,
+    options?: Partial<CallOptions>,
+  ): ClientDuplexStream<StreamChunk, ReceivingStreamControl>;
+  receiveStreamMessage(): ClientDuplexStream<SendingStreamControl, DataChunk>;
+  receiveStreamMessage(options: Partial<CallOptions>): ClientDuplexStream<SendingStreamControl, DataChunk>;
   receiveStreamMessage(
     metadata: Metadata,
     options?: Partial<CallOptions>,
-  ): ClientDuplexStream<StreamControl, DataChunk>;
+  ): ClientDuplexStream<SendingStreamControl, DataChunk>;
   logStream(callback: (error: ServiceError | null, response: Empty) => void): ClientWritableStream<LogMessage>;
   logStream(
     metadata: Metadata,

@@ -17,18 +17,65 @@ export interface Close {
   channel: string;
 }
 
-export interface Message {
-  channel: string;
+/** Central piece of data */
+export interface DataChunk {
   data: Uint8Array;
-  tick: number;
 }
 
+/** This message contains data that is sent from a runner to the orchestrator */
+export interface SendingMessage {
+  channel: string;
+  data: Uint8Array;
+  localSequenceNumber: number;
+}
+
+/** This message contains data that is received by a runner from the orchestrator */
+export interface ReceivingMessage {
+  channel: string;
+  data: Uint8Array;
+  globalSequenceNumber: number;
+}
+
+/**
+ * StreamMessage contains the sequenceNumber used to receive the streaming data
+ * This message is received by the runner from the orchestrator
+ */
+export interface ReceivingStreamMessage {
+  globalSequenceNumber: number;
+  channel: string;
+}
+
+/**
+ * Control message for a streaming message, to the producer
+ * When the runner receives 0 it can send the first chunk
+ * After each chunk it MUST await the next sequenceNumber
+ */
+export interface ReceivingStreamControl {
+  streamSequenceNumber: number;
+}
+
+/**
+ * Control message for a streaming message, from the consumer
+ * First the consumer must identify which stream it wants to consume, with the
+ * globalSequenceNumber
+ * Then after handling a chunk, it must send how many chunks have been handled
+ */
+export interface SendingStreamControl {
+  globalSequenceNumber?: number | undefined;
+  streamSequenceNumber?: number | undefined;
+}
+
+/** The first message when a runner sends a streaming message to the orchestrator */
 export interface StreamIdentify {
   channel: string;
-  tick: number;
+  localSequenceNumber: number;
   runner: string;
 }
 
+/**
+ * Wrapper around first StreamIdentify to identify the sendingStreamMessage
+ * And the data that is part of the streaming message
+ */
 export interface StreamChunk {
   id?: StreamIdentify | undefined;
   data?: DataChunk | undefined;
@@ -37,19 +84,7 @@ export interface StreamChunk {
 export interface MessageProcessed {
   channel: string;
   /** identifying the message that is fully processed */
-  tick: number;
-}
-
-export interface DataChunk {
-  data: Uint8Array;
-}
-
-export interface StreamMessage {
-  /** globally identifying this stream message, used with receiveStreamMessage */
-  id: number;
-  channel: string;
-  /** identifying this message */
-  tick: number;
+  globalSequenceNumber: number;
 }
 
 function createBaseError(): Error {
@@ -168,28 +203,86 @@ export const Close: MessageFns<Close> = {
   },
 };
 
-function createBaseMessage(): Message {
-  return { channel: "", data: new Uint8Array(0), tick: 0 };
+function createBaseDataChunk(): DataChunk {
+  return { data: new Uint8Array(0) };
 }
 
-export const Message: MessageFns<Message> = {
-  encode(message: Message, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+export const DataChunk: MessageFns<DataChunk> = {
+  encode(message: DataChunk, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.data.length !== 0) {
+      writer.uint32(10).bytes(message.data);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): DataChunk {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseDataChunk();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.data = reader.bytes();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): DataChunk {
+    return { data: isSet(object.data) ? bytesFromBase64(object.data) : new Uint8Array(0) };
+  },
+
+  toJSON(message: DataChunk): unknown {
+    const obj: any = {};
+    if (message.data.length !== 0) {
+      obj.data = base64FromBytes(message.data);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<DataChunk>, I>>(base?: I): DataChunk {
+    return DataChunk.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<DataChunk>, I>>(object: I): DataChunk {
+    const message = createBaseDataChunk();
+    message.data = object.data ?? new Uint8Array(0);
+    return message;
+  },
+};
+
+function createBaseSendingMessage(): SendingMessage {
+  return { channel: "", data: new Uint8Array(0), localSequenceNumber: 0 };
+}
+
+export const SendingMessage: MessageFns<SendingMessage> = {
+  encode(message: SendingMessage, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.channel !== "") {
       writer.uint32(10).string(message.channel);
     }
     if (message.data.length !== 0) {
       writer.uint32(18).bytes(message.data);
     }
-    if (message.tick !== 0) {
-      writer.uint32(24).uint32(message.tick);
+    if (message.localSequenceNumber !== 0) {
+      writer.uint32(24).uint32(message.localSequenceNumber);
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): Message {
+  decode(input: BinaryReader | Uint8Array, length?: number): SendingMessage {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseMessage();
+    const message = createBaseSendingMessage();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -214,7 +307,7 @@ export const Message: MessageFns<Message> = {
             break;
           }
 
-          message.tick = reader.uint32();
+          message.localSequenceNumber = reader.uint32();
           continue;
         }
       }
@@ -226,15 +319,15 @@ export const Message: MessageFns<Message> = {
     return message;
   },
 
-  fromJSON(object: any): Message {
+  fromJSON(object: any): SendingMessage {
     return {
       channel: isSet(object.channel) ? globalThis.String(object.channel) : "",
       data: isSet(object.data) ? bytesFromBase64(object.data) : new Uint8Array(0),
-      tick: isSet(object.tick) ? globalThis.Number(object.tick) : 0,
+      localSequenceNumber: isSet(object.localSequenceNumber) ? globalThis.Number(object.localSequenceNumber) : 0,
     };
   },
 
-  toJSON(message: Message): unknown {
+  toJSON(message: SendingMessage): unknown {
     const obj: any = {};
     if (message.channel !== "") {
       obj.channel = message.channel;
@@ -242,26 +335,334 @@ export const Message: MessageFns<Message> = {
     if (message.data.length !== 0) {
       obj.data = base64FromBytes(message.data);
     }
-    if (message.tick !== 0) {
-      obj.tick = Math.round(message.tick);
+    if (message.localSequenceNumber !== 0) {
+      obj.localSequenceNumber = Math.round(message.localSequenceNumber);
     }
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<Message>, I>>(base?: I): Message {
-    return Message.fromPartial(base ?? ({} as any));
+  create<I extends Exact<DeepPartial<SendingMessage>, I>>(base?: I): SendingMessage {
+    return SendingMessage.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<Message>, I>>(object: I): Message {
-    const message = createBaseMessage();
+  fromPartial<I extends Exact<DeepPartial<SendingMessage>, I>>(object: I): SendingMessage {
+    const message = createBaseSendingMessage();
     message.channel = object.channel ?? "";
     message.data = object.data ?? new Uint8Array(0);
-    message.tick = object.tick ?? 0;
+    message.localSequenceNumber = object.localSequenceNumber ?? 0;
+    return message;
+  },
+};
+
+function createBaseReceivingMessage(): ReceivingMessage {
+  return { channel: "", data: new Uint8Array(0), globalSequenceNumber: 0 };
+}
+
+export const ReceivingMessage: MessageFns<ReceivingMessage> = {
+  encode(message: ReceivingMessage, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.channel !== "") {
+      writer.uint32(10).string(message.channel);
+    }
+    if (message.data.length !== 0) {
+      writer.uint32(18).bytes(message.data);
+    }
+    if (message.globalSequenceNumber !== 0) {
+      writer.uint32(24).uint32(message.globalSequenceNumber);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ReceivingMessage {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseReceivingMessage();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.channel = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.data = reader.bytes();
+          continue;
+        }
+        case 3: {
+          if (tag !== 24) {
+            break;
+          }
+
+          message.globalSequenceNumber = reader.uint32();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ReceivingMessage {
+    return {
+      channel: isSet(object.channel) ? globalThis.String(object.channel) : "",
+      data: isSet(object.data) ? bytesFromBase64(object.data) : new Uint8Array(0),
+      globalSequenceNumber: isSet(object.globalSequenceNumber) ? globalThis.Number(object.globalSequenceNumber) : 0,
+    };
+  },
+
+  toJSON(message: ReceivingMessage): unknown {
+    const obj: any = {};
+    if (message.channel !== "") {
+      obj.channel = message.channel;
+    }
+    if (message.data.length !== 0) {
+      obj.data = base64FromBytes(message.data);
+    }
+    if (message.globalSequenceNumber !== 0) {
+      obj.globalSequenceNumber = Math.round(message.globalSequenceNumber);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ReceivingMessage>, I>>(base?: I): ReceivingMessage {
+    return ReceivingMessage.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ReceivingMessage>, I>>(object: I): ReceivingMessage {
+    const message = createBaseReceivingMessage();
+    message.channel = object.channel ?? "";
+    message.data = object.data ?? new Uint8Array(0);
+    message.globalSequenceNumber = object.globalSequenceNumber ?? 0;
+    return message;
+  },
+};
+
+function createBaseReceivingStreamMessage(): ReceivingStreamMessage {
+  return { globalSequenceNumber: 0, channel: "" };
+}
+
+export const ReceivingStreamMessage: MessageFns<ReceivingStreamMessage> = {
+  encode(message: ReceivingStreamMessage, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.globalSequenceNumber !== 0) {
+      writer.uint32(8).uint32(message.globalSequenceNumber);
+    }
+    if (message.channel !== "") {
+      writer.uint32(18).string(message.channel);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ReceivingStreamMessage {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseReceivingStreamMessage();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.globalSequenceNumber = reader.uint32();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.channel = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ReceivingStreamMessage {
+    return {
+      globalSequenceNumber: isSet(object.globalSequenceNumber) ? globalThis.Number(object.globalSequenceNumber) : 0,
+      channel: isSet(object.channel) ? globalThis.String(object.channel) : "",
+    };
+  },
+
+  toJSON(message: ReceivingStreamMessage): unknown {
+    const obj: any = {};
+    if (message.globalSequenceNumber !== 0) {
+      obj.globalSequenceNumber = Math.round(message.globalSequenceNumber);
+    }
+    if (message.channel !== "") {
+      obj.channel = message.channel;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ReceivingStreamMessage>, I>>(base?: I): ReceivingStreamMessage {
+    return ReceivingStreamMessage.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ReceivingStreamMessage>, I>>(object: I): ReceivingStreamMessage {
+    const message = createBaseReceivingStreamMessage();
+    message.globalSequenceNumber = object.globalSequenceNumber ?? 0;
+    message.channel = object.channel ?? "";
+    return message;
+  },
+};
+
+function createBaseReceivingStreamControl(): ReceivingStreamControl {
+  return { streamSequenceNumber: 0 };
+}
+
+export const ReceivingStreamControl: MessageFns<ReceivingStreamControl> = {
+  encode(message: ReceivingStreamControl, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.streamSequenceNumber !== 0) {
+      writer.uint32(16).uint32(message.streamSequenceNumber);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ReceivingStreamControl {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseReceivingStreamControl();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 2: {
+          if (tag !== 16) {
+            break;
+          }
+
+          message.streamSequenceNumber = reader.uint32();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ReceivingStreamControl {
+    return {
+      streamSequenceNumber: isSet(object.streamSequenceNumber) ? globalThis.Number(object.streamSequenceNumber) : 0,
+    };
+  },
+
+  toJSON(message: ReceivingStreamControl): unknown {
+    const obj: any = {};
+    if (message.streamSequenceNumber !== 0) {
+      obj.streamSequenceNumber = Math.round(message.streamSequenceNumber);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ReceivingStreamControl>, I>>(base?: I): ReceivingStreamControl {
+    return ReceivingStreamControl.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ReceivingStreamControl>, I>>(object: I): ReceivingStreamControl {
+    const message = createBaseReceivingStreamControl();
+    message.streamSequenceNumber = object.streamSequenceNumber ?? 0;
+    return message;
+  },
+};
+
+function createBaseSendingStreamControl(): SendingStreamControl {
+  return { globalSequenceNumber: undefined, streamSequenceNumber: undefined };
+}
+
+export const SendingStreamControl: MessageFns<SendingStreamControl> = {
+  encode(message: SendingStreamControl, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.globalSequenceNumber !== undefined) {
+      writer.uint32(8).uint32(message.globalSequenceNumber);
+    }
+    if (message.streamSequenceNumber !== undefined) {
+      writer.uint32(16).uint32(message.streamSequenceNumber);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): SendingStreamControl {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseSendingStreamControl();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.globalSequenceNumber = reader.uint32();
+          continue;
+        }
+        case 2: {
+          if (tag !== 16) {
+            break;
+          }
+
+          message.streamSequenceNumber = reader.uint32();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): SendingStreamControl {
+    return {
+      globalSequenceNumber: isSet(object.globalSequenceNumber)
+        ? globalThis.Number(object.globalSequenceNumber)
+        : undefined,
+      streamSequenceNumber: isSet(object.streamSequenceNumber)
+        ? globalThis.Number(object.streamSequenceNumber)
+        : undefined,
+    };
+  },
+
+  toJSON(message: SendingStreamControl): unknown {
+    const obj: any = {};
+    if (message.globalSequenceNumber !== undefined) {
+      obj.globalSequenceNumber = Math.round(message.globalSequenceNumber);
+    }
+    if (message.streamSequenceNumber !== undefined) {
+      obj.streamSequenceNumber = Math.round(message.streamSequenceNumber);
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<SendingStreamControl>, I>>(base?: I): SendingStreamControl {
+    return SendingStreamControl.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<SendingStreamControl>, I>>(object: I): SendingStreamControl {
+    const message = createBaseSendingStreamControl();
+    message.globalSequenceNumber = object.globalSequenceNumber ?? undefined;
+    message.streamSequenceNumber = object.streamSequenceNumber ?? undefined;
     return message;
   },
 };
 
 function createBaseStreamIdentify(): StreamIdentify {
-  return { channel: "", tick: 0, runner: "" };
+  return { channel: "", localSequenceNumber: 0, runner: "" };
 }
 
 export const StreamIdentify: MessageFns<StreamIdentify> = {
@@ -269,8 +670,8 @@ export const StreamIdentify: MessageFns<StreamIdentify> = {
     if (message.channel !== "") {
       writer.uint32(10).string(message.channel);
     }
-    if (message.tick !== 0) {
-      writer.uint32(16).uint32(message.tick);
+    if (message.localSequenceNumber !== 0) {
+      writer.uint32(16).uint32(message.localSequenceNumber);
     }
     if (message.runner !== "") {
       writer.uint32(26).string(message.runner);
@@ -298,7 +699,7 @@ export const StreamIdentify: MessageFns<StreamIdentify> = {
             break;
           }
 
-          message.tick = reader.uint32();
+          message.localSequenceNumber = reader.uint32();
           continue;
         }
         case 3: {
@@ -321,7 +722,7 @@ export const StreamIdentify: MessageFns<StreamIdentify> = {
   fromJSON(object: any): StreamIdentify {
     return {
       channel: isSet(object.channel) ? globalThis.String(object.channel) : "",
-      tick: isSet(object.tick) ? globalThis.Number(object.tick) : 0,
+      localSequenceNumber: isSet(object.localSequenceNumber) ? globalThis.Number(object.localSequenceNumber) : 0,
       runner: isSet(object.runner) ? globalThis.String(object.runner) : "",
     };
   },
@@ -331,8 +732,8 @@ export const StreamIdentify: MessageFns<StreamIdentify> = {
     if (message.channel !== "") {
       obj.channel = message.channel;
     }
-    if (message.tick !== 0) {
-      obj.tick = Math.round(message.tick);
+    if (message.localSequenceNumber !== 0) {
+      obj.localSequenceNumber = Math.round(message.localSequenceNumber);
     }
     if (message.runner !== "") {
       obj.runner = message.runner;
@@ -346,7 +747,7 @@ export const StreamIdentify: MessageFns<StreamIdentify> = {
   fromPartial<I extends Exact<DeepPartial<StreamIdentify>, I>>(object: I): StreamIdentify {
     const message = createBaseStreamIdentify();
     message.channel = object.channel ?? "";
-    message.tick = object.tick ?? 0;
+    message.localSequenceNumber = object.localSequenceNumber ?? 0;
     message.runner = object.runner ?? "";
     return message;
   },
@@ -429,7 +830,7 @@ export const StreamChunk: MessageFns<StreamChunk> = {
 };
 
 function createBaseMessageProcessed(): MessageProcessed {
-  return { channel: "", tick: 0 };
+  return { channel: "", globalSequenceNumber: 0 };
 }
 
 export const MessageProcessed: MessageFns<MessageProcessed> = {
@@ -437,8 +838,8 @@ export const MessageProcessed: MessageFns<MessageProcessed> = {
     if (message.channel !== "") {
       writer.uint32(10).string(message.channel);
     }
-    if (message.tick !== 0) {
-      writer.uint32(16).uint32(message.tick);
+    if (message.globalSequenceNumber !== 0) {
+      writer.uint32(16).uint32(message.globalSequenceNumber);
     }
     return writer;
   },
@@ -463,7 +864,7 @@ export const MessageProcessed: MessageFns<MessageProcessed> = {
             break;
           }
 
-          message.tick = reader.uint32();
+          message.globalSequenceNumber = reader.uint32();
           continue;
         }
       }
@@ -478,7 +879,7 @@ export const MessageProcessed: MessageFns<MessageProcessed> = {
   fromJSON(object: any): MessageProcessed {
     return {
       channel: isSet(object.channel) ? globalThis.String(object.channel) : "",
-      tick: isSet(object.tick) ? globalThis.Number(object.tick) : 0,
+      globalSequenceNumber: isSet(object.globalSequenceNumber) ? globalThis.Number(object.globalSequenceNumber) : 0,
     };
   },
 
@@ -487,8 +888,8 @@ export const MessageProcessed: MessageFns<MessageProcessed> = {
     if (message.channel !== "") {
       obj.channel = message.channel;
     }
-    if (message.tick !== 0) {
-      obj.tick = Math.round(message.tick);
+    if (message.globalSequenceNumber !== 0) {
+      obj.globalSequenceNumber = Math.round(message.globalSequenceNumber);
     }
     return obj;
   },
@@ -499,157 +900,7 @@ export const MessageProcessed: MessageFns<MessageProcessed> = {
   fromPartial<I extends Exact<DeepPartial<MessageProcessed>, I>>(object: I): MessageProcessed {
     const message = createBaseMessageProcessed();
     message.channel = object.channel ?? "";
-    message.tick = object.tick ?? 0;
-    return message;
-  },
-};
-
-function createBaseDataChunk(): DataChunk {
-  return { data: new Uint8Array(0) };
-}
-
-export const DataChunk: MessageFns<DataChunk> = {
-  encode(message: DataChunk, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.data.length !== 0) {
-      writer.uint32(10).bytes(message.data);
-    }
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): DataChunk {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseDataChunk();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          message.data = reader.bytes();
-          continue;
-        }
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(object: any): DataChunk {
-    return { data: isSet(object.data) ? bytesFromBase64(object.data) : new Uint8Array(0) };
-  },
-
-  toJSON(message: DataChunk): unknown {
-    const obj: any = {};
-    if (message.data.length !== 0) {
-      obj.data = base64FromBytes(message.data);
-    }
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<DataChunk>, I>>(base?: I): DataChunk {
-    return DataChunk.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<DataChunk>, I>>(object: I): DataChunk {
-    const message = createBaseDataChunk();
-    message.data = object.data ?? new Uint8Array(0);
-    return message;
-  },
-};
-
-function createBaseStreamMessage(): StreamMessage {
-  return { id: 0, channel: "", tick: 0 };
-}
-
-export const StreamMessage: MessageFns<StreamMessage> = {
-  encode(message: StreamMessage, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.id !== 0) {
-      writer.uint32(8).uint32(message.id);
-    }
-    if (message.channel !== "") {
-      writer.uint32(18).string(message.channel);
-    }
-    if (message.tick !== 0) {
-      writer.uint32(24).uint32(message.tick);
-    }
-    return writer;
-  },
-
-  decode(input: BinaryReader | Uint8Array, length?: number): StreamMessage {
-    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-    let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseStreamMessage();
-    while (reader.pos < end) {
-      const tag = reader.uint32();
-      switch (tag >>> 3) {
-        case 1: {
-          if (tag !== 8) {
-            break;
-          }
-
-          message.id = reader.uint32();
-          continue;
-        }
-        case 2: {
-          if (tag !== 18) {
-            break;
-          }
-
-          message.channel = reader.string();
-          continue;
-        }
-        case 3: {
-          if (tag !== 24) {
-            break;
-          }
-
-          message.tick = reader.uint32();
-          continue;
-        }
-      }
-      if ((tag & 7) === 4 || tag === 0) {
-        break;
-      }
-      reader.skip(tag & 7);
-    }
-    return message;
-  },
-
-  fromJSON(object: any): StreamMessage {
-    return {
-      id: isSet(object.id) ? globalThis.Number(object.id) : 0,
-      channel: isSet(object.channel) ? globalThis.String(object.channel) : "",
-      tick: isSet(object.tick) ? globalThis.Number(object.tick) : 0,
-    };
-  },
-
-  toJSON(message: StreamMessage): unknown {
-    const obj: any = {};
-    if (message.id !== 0) {
-      obj.id = Math.round(message.id);
-    }
-    if (message.channel !== "") {
-      obj.channel = message.channel;
-    }
-    if (message.tick !== 0) {
-      obj.tick = Math.round(message.tick);
-    }
-    return obj;
-  },
-
-  create<I extends Exact<DeepPartial<StreamMessage>, I>>(base?: I): StreamMessage {
-    return StreamMessage.fromPartial(base ?? ({} as any));
-  },
-  fromPartial<I extends Exact<DeepPartial<StreamMessage>, I>>(object: I): StreamMessage {
-    const message = createBaseStreamMessage();
-    message.id = object.id ?? 0;
-    message.channel = object.channel ?? "";
-    message.tick = object.tick ?? 0;
+    message.globalSequenceNumber = object.globalSequenceNumber ?? 0;
     return message;
   },
 };

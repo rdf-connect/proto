@@ -1,16 +1,21 @@
-export * from "./generated/service";
 export {
+    ProcessorInitialized, Processor, RunnerIdentify,
+    RunnerClient, ToRunner, FromRunner,
+    RunnerServer,
+    LogMessage
+} from "./generated/service";
+export {
+    Error,
     Close,
     DataChunk,
-    Error,
-    Message,
-    StreamMessage,
+    SendingMessage,
+    ReceivingMessage,
+    ReceivingStreamMessage,
+    SendingStreamControl,
+    ReceivingStreamControl,
+    StreamIdentify,
+    StreamChunk,
+    MessageProcessed,
 } from "./generated/common";
-export { Processor, RunnerMessage } from "./generated/runner";
-export {
-    Identify,
-    OrchestratorMessage,
-    ProcessorInit,
-} from "./generated/orchestrator";
 export { Empty } from "./generated/google/protobuf/empty";
 export * as grpc from "@grpc/grpc-js";
