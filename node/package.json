@@ -1,6 +1,6 @@
 {
   "name": "@rdfc/proto",
-  "version": "0.1.2-alpha-5",
+  "version": "0.1.2-alpha-6",
   "description": "RDF-Connect protobuf bindings",
   "main": "lib/index.js",
   "type": "module",

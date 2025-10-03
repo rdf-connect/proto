@@ -2,7 +2,8 @@ export {
     ProcessorInitialized, Processor, RunnerIdentify,
     RunnerClient, ToRunner, FromRunner,
     RunnerServer,
-    LogMessage
+    RunnerService,
+    LogMessage,
 } from "./generated/service";
 export {
     Error,
