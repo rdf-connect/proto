@@ -11,16 +11,16 @@ message DataChunk { bytes data = 1; }
 
 // This message contains data that is sent from a runner to the orchestrator
 message SendingMessage {
-  string channel = 1;
-  bytes data = 2;
-  uint32 localSequenceNumber = 3;
+  uint32 localSequenceNumber = 1;
+  string channel = 2;
+  bytes data = 3;
 }
 
 // This message contains data that is received by a runner from the orchestrator
 message ReceivingMessage {
-  string channel = 1;
-  bytes data = 2;
-  uint32 globalSequenceNumber = 3;
+  uint32 globalSequenceNumber = 1;
+  string channel = 2;
+  bytes data = 3;
 }
 
 // StreamMessage contains the sequenceNumber used to receive the streaming data

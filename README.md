@@ -41,28 +41,25 @@ Full specification detailing the implementations can be found on [here](https://
 ### Core Message Types
 
 #### `common.proto` - Base Protocol Definitions
-- `Message`: Core message structure with channel, data, and tick
 - `Error`: Error reporting with cause description
 - `Close`: Channel closure signaling
-- `StreamIdentify`: Stream identification and metadata
-- `StreamChunk`: Chunked streaming data container
-- `MessageProcessed`: Processing acknowledgment with tick
 - `DataChunk`: Raw data chunk for streaming
-- `StreamMessage`: Stream message with ID and metadata
-
-#### `orchestrator.proto` - Orchestration Layer
-- `ProcessorInit`: Processor initialization with URI and optional error
-- `Identify`: Component identification
-- `OrchestratorMessage`: Main orchestration message container
-
-#### `runner.proto` - Execution Layer
-- `Processor`: Processor definition with URI, config, and arguments
-- `RunnerMessage`: Main runner message container
+- `SendingMessage`: Message sent from runner to orchestrator with channel, data, and local sequence number
+- `ReceivingMessage`: Message received by runner from orchestrator with global sequence number, channel, and data
+- `ReceivingStreamMessage`: Stream message received by runner with global sequence number and channel
+- `ReceivingStreamControl`: Control message for streaming to producer (contains stream sequence number)
+- `SendingStreamControl`: Control message for streaming from consumer (contains global or stream sequence number)
+- `StreamIdentify`: First message when runner sends streaming data (channel, local sequence number, runner URI)
+- `StreamChunk`: Wrapper for StreamIdentify or DataChunk messages
+- `MessageProcessed`: Processing acknowledgment with channel and global sequence number
 
 #### `service.proto` - Service Interface
-- `Id`: Simple ID message for stream identification
-- `LogMessage`: Structured logging with levels and entity tracking
-- `StreamControl`: Control messages for stream messages
+- `LogMessage`: Structured logging with levels, entities, and aliases
+- `Processor`: Processor definition with URI, configuration, and arguments
+- `ToRunner`: Message container sent to runners (contains processor, start, message, close, stream message, pipeline, or processed)
+- `ProcessorInitialized`: Initialization confirmation with URI and optional error
+- `RunnerIdentify`: Runner identification with URI
+- `FromRunner`: Message container from runners (contains initialized, close, identify, message, or processed)
 - `Runner` Service: Main service interface with 4 RPC methods
 
 
@@ -79,20 +76,20 @@ sequenceDiagram
     R->>O: connect() - Initiate bidirectional stream
 
     Note over R,O: Identify
-    R->>O: OrchestratorMessage{identify: Identify(uri)}
+    R->>O: FromRunner{identify: RunnerIdentify(uri)}
 
     Note over O,R: Pipeline Updates
-    O->>R: RunnerMessage{pipeline: "Turtle RDF with SHACL shapes"}
+    O->>R: ToRunner{pipeline: "Turtle RDF with SHACL shapes"}
     R->>R: Update processing pipeline
-    
+
     Note over R,O: Processor Configuration
-    O->>R: RunnerMessage{proc: Processor(uri, config, arguments)}
+    O->>R: ToRunner{proc: Processor(uri, config, arguments)}
 
     Note over R,O: Initialization Confirmation
-    R->>O: OrchestratorMessage{init: ProcessorInit(uri, [error])}
+    R->>O: FromRunner{initialized: ProcessorInitialized(uri, [error])}
 
     Note over R,O: Processing Start
-    O->>R: RunnerMessage{start: Empty}
+    O->>R: ToRunner{start: Empty}
     R->>R: Ready for processing
 ```
 
@@ -100,13 +97,15 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
+    participant R2 as Runner2
     participant O as Orchestrator
-    participant R as Runner
+    participant R1 as Runner1
 
-    Note over O,R: Standard Message Flow
-    O->>R: OrchestratorMessage{msg: Message(channel, data, tick)}
-    R->>R: Process message
-    R->>O: OrchestratorMessage{processed: MessageProcessed(uri, tick)}
+    Note right of O: Standard Message Flow
+    R1->>O: FromRunner{SendingMessage(localSequenceNumber, channel, data)}
+    O->>R2: ToRunner{msg: ReceivingMessage(globalSequenceNumber, channel, data)}
+    R2->>O: FromRunnner{processed: MessageProcessed(channel, globalSequenceNumber)}
+    O->>R1: ToRunner{processed: MessageProcessed(channel, globalSequenceNumber: localSequenceNumber)}
 ```
 
 ### Streaming Message Flow
@@ -118,25 +117,26 @@ sequenceDiagram
     participant R1 as Runner1
 
     Note left of R1: Stream Identification
-    R1->>O: sendStreamMessage() - StreamChunk{id: StreamIdentify(channel, tick, runner)}
+    R1->>O: sendStreamMessage() - StreamChunk{id: StreamIdentify(channel, localSequenceNumber, runner)}
 
     Note left of O: Stream Initiation
-    O->>R2: RunnerMessage{streamMsg: StreamMessage(id, channel, tick)}
+    O->>R2: ToRunner{streamMsg: ReceivingStreamMessage(globalSequenceNumber, channel)}
 
     Note right of R2: Stream Reception
-    R2->>O: receiveStreamMessage()
-    R2->>O: Sends single Id - StreamControl{id: Id}
+    R2->>O: receiveStreamMessage() - SendingStreamControl{globalSequenceNumber}
 
     Note right of O: Ready to generate data
-    O->>R1: Sends single Id - StreamControl{id: Id}
+    O->>R1: Sends stream control - ReceivingStreamControl{streamSequenceNumber}
 
     R1->>R1: Generate data chunks
     loop For Each Chunk
-        R1->>O: sendStream - StreamChunk{data: DataChunk(bytes)}
-        O->>R2: receiveStream - DataChunk(bytes)
-        R2->>O: chunk handled - StreamControl{processed: Empty}
-        O->>R1: chunk handled - StreamControl{processed: Empty}
+        R1->>O: sendStreamMessage() - StreamChunk{data: DataChunk(bytes)}
+        O->>R2: receiveStreamMessage() - DataChunk(bytes)
+        R2->>O: chunk handled - SendingStreamControl{streamSequenceNumber}
+        O->>R1: chunk handled - ReceivingStreamControl{streamSequenceNumber}
     end
+    R2->>O: FromRunnner{processed: MessageProcessed(channel, globalSequenceNumber)}
+    O->>R1: ToRunner{processed: MessageProcessed(channel, globalSequenceNumber: localSequenceNumber)}
 ```
 
 ### Logging Flow
@@ -154,20 +154,20 @@ sequenceDiagram
 
 ### Core RPC Methods
 
-#### `connect(stream OrchestratorMessage) returns (stream RunnerMessage)`
+#### `connect(stream FromRunner) returns (stream ToRunner)`
 - **Purpose**: Main bidirectional communication channel
-- **Flow**: Orchestrator ↔ Runner message streaming
+- **Flow**: Runner → Orchestrator message streaming
 - **Use Case**: Primary orchestration and execution communication
 
-#### `sendStreamMessage(stream StreamChunk) returns (stream Id)`
+#### `sendStreamMessage(stream StreamChunk) returns (stream ReceivingStreamControl)`
 - **Purpose**: Send streaming data with identification
-- **Flow**: StreamChunk (StreamIdentify/DataChunk) → stream of acknowledgments
-- **Use Case**: Chunked data transmission with metadata
+- **Flow**: StreamChunk (StreamIdentify/DataChunk) → stream of ReceivingStreamControl responses
+- **Use Case**: Chunked data transmission with flow control
 
-#### `receiveStreamMessage(Id) returns (stream DataChunk)`
-- **Purpose**: Receive streaming data by ID
-- **Flow**: Request ID → stream of DataChunk responses
-- **Use Case**: Retrieve specific data streams
+#### `receiveStreamMessage(stream SendingStreamControl) returns (stream DataChunk)`
+- **Purpose**: Receive streaming data by identification
+- **Flow**: Request SendingStreamControl → stream of DataChunk responses
+- **Use Case**: Retrieve specific data streams with consumer control
 
 #### `logStream(stream LogMessage) returns (google.protobuf.Empty)`
 - **Purpose**: Structured logging stream
