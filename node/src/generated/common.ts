@@ -24,16 +24,16 @@ export interface DataChunk {
 
 /** This message contains data that is sent from a runner to the orchestrator */
 export interface SendingMessage {
+  localSequenceNumber: number;
   channel: string;
   data: Uint8Array;
-  localSequenceNumber: number;
 }
 
 /** This message contains data that is received by a runner from the orchestrator */
 export interface ReceivingMessage {
+  globalSequenceNumber: number;
   channel: string;
   data: Uint8Array;
-  globalSequenceNumber: number;
 }
 
 /**
@@ -262,19 +262,19 @@ export const DataChunk: MessageFns<DataChunk> = {
 };
 
 function createBaseSendingMessage(): SendingMessage {
-  return { channel: "", data: new Uint8Array(0), localSequenceNumber: 0 };
+  return { localSequenceNumber: 0, channel: "", data: new Uint8Array(0) };
 }
 
 export const SendingMessage: MessageFns<SendingMessage> = {
   encode(message: SendingMessage, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.localSequenceNumber !== 0) {
+      writer.uint32(8).uint32(message.localSequenceNumber);
+    }
     if (message.channel !== "") {
-      writer.uint32(10).string(message.channel);
+      writer.uint32(18).string(message.channel);
     }
     if (message.data.length !== 0) {
-      writer.uint32(18).bytes(message.data);
-    }
-    if (message.localSequenceNumber !== 0) {
-      writer.uint32(24).uint32(message.localSequenceNumber);
+      writer.uint32(26).bytes(message.data);
     }
     return writer;
   },
@@ -287,11 +287,11 @@ export const SendingMessage: MessageFns<SendingMessage> = {
       const tag = reader.uint32();
       switch (tag >>> 3) {
         case 1: {
-          if (tag !== 10) {
+          if (tag !== 8) {
             break;
           }
 
-          message.channel = reader.string();
+          message.localSequenceNumber = reader.uint32();
           continue;
         }
         case 2: {
@@ -299,15 +299,15 @@ export const SendingMessage: MessageFns<SendingMessage> = {
             break;
           }
 
-          message.data = reader.bytes();
+          message.channel = reader.string();
           continue;
         }
         case 3: {
-          if (tag !== 24) {
+          if (tag !== 26) {
             break;
           }
 
-          message.localSequenceNumber = reader.uint32();
+          message.data = reader.bytes();
           continue;
         }
       }
@@ -321,22 +321,22 @@ export const SendingMessage: MessageFns<SendingMessage> = {
 
   fromJSON(object: any): SendingMessage {
     return {
+      localSequenceNumber: isSet(object.localSequenceNumber) ? globalThis.Number(object.localSequenceNumber) : 0,
       channel: isSet(object.channel) ? globalThis.String(object.channel) : "",
       data: isSet(object.data) ? bytesFromBase64(object.data) : new Uint8Array(0),
-      localSequenceNumber: isSet(object.localSequenceNumber) ? globalThis.Number(object.localSequenceNumber) : 0,
     };
   },
 
   toJSON(message: SendingMessage): unknown {
     const obj: any = {};
+    if (message.localSequenceNumber !== 0) {
+      obj.localSequenceNumber = Math.round(message.localSequenceNumber);
+    }
     if (message.channel !== "") {
       obj.channel = message.channel;
     }
     if (message.data.length !== 0) {
       obj.data = base64FromBytes(message.data);
-    }
-    if (message.localSequenceNumber !== 0) {
-      obj.localSequenceNumber = Math.round(message.localSequenceNumber);
     }
     return obj;
   },
@@ -346,27 +346,27 @@ export const SendingMessage: MessageFns<SendingMessage> = {
   },
   fromPartial<I extends Exact<DeepPartial<SendingMessage>, I>>(object: I): SendingMessage {
     const message = createBaseSendingMessage();
+    message.localSequenceNumber = object.localSequenceNumber ?? 0;
     message.channel = object.channel ?? "";
     message.data = object.data ?? new Uint8Array(0);
-    message.localSequenceNumber = object.localSequenceNumber ?? 0;
     return message;
   },
 };
 
 function createBaseReceivingMessage(): ReceivingMessage {
-  return { channel: "", data: new Uint8Array(0), globalSequenceNumber: 0 };
+  return { globalSequenceNumber: 0, channel: "", data: new Uint8Array(0) };
 }
 
 export const ReceivingMessage: MessageFns<ReceivingMessage> = {
   encode(message: ReceivingMessage, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.globalSequenceNumber !== 0) {
+      writer.uint32(8).uint32(message.globalSequenceNumber);
+    }
     if (message.channel !== "") {
-      writer.uint32(10).string(message.channel);
+      writer.uint32(18).string(message.channel);
     }
     if (message.data.length !== 0) {
-      writer.uint32(18).bytes(message.data);
-    }
-    if (message.globalSequenceNumber !== 0) {
-      writer.uint32(24).uint32(message.globalSequenceNumber);
+      writer.uint32(26).bytes(message.data);
     }
     return writer;
   },
@@ -379,11 +379,11 @@ export const ReceivingMessage: MessageFns<ReceivingMessage> = {
       const tag = reader.uint32();
       switch (tag >>> 3) {
         case 1: {
-          if (tag !== 10) {
+          if (tag !== 8) {
             break;
           }
 
-          message.channel = reader.string();
+          message.globalSequenceNumber = reader.uint32();
           continue;
         }
         case 2: {
@@ -391,15 +391,15 @@ export const ReceivingMessage: MessageFns<ReceivingMessage> = {
             break;
           }
 
-          message.data = reader.bytes();
+          message.channel = reader.string();
           continue;
         }
         case 3: {
-          if (tag !== 24) {
+          if (tag !== 26) {
             break;
           }
 
-          message.globalSequenceNumber = reader.uint32();
+          message.data = reader.bytes();
           continue;
         }
       }
@@ -413,22 +413,22 @@ export const ReceivingMessage: MessageFns<ReceivingMessage> = {
 
   fromJSON(object: any): ReceivingMessage {
     return {
+      globalSequenceNumber: isSet(object.globalSequenceNumber) ? globalThis.Number(object.globalSequenceNumber) : 0,
       channel: isSet(object.channel) ? globalThis.String(object.channel) : "",
       data: isSet(object.data) ? bytesFromBase64(object.data) : new Uint8Array(0),
-      globalSequenceNumber: isSet(object.globalSequenceNumber) ? globalThis.Number(object.globalSequenceNumber) : 0,
     };
   },
 
   toJSON(message: ReceivingMessage): unknown {
     const obj: any = {};
+    if (message.globalSequenceNumber !== 0) {
+      obj.globalSequenceNumber = Math.round(message.globalSequenceNumber);
+    }
     if (message.channel !== "") {
       obj.channel = message.channel;
     }
     if (message.data.length !== 0) {
       obj.data = base64FromBytes(message.data);
-    }
-    if (message.globalSequenceNumber !== 0) {
-      obj.globalSequenceNumber = Math.round(message.globalSequenceNumber);
     }
     return obj;
   },
@@ -438,9 +438,9 @@ export const ReceivingMessage: MessageFns<ReceivingMessage> = {
   },
   fromPartial<I extends Exact<DeepPartial<ReceivingMessage>, I>>(object: I): ReceivingMessage {
     const message = createBaseReceivingMessage();
+    message.globalSequenceNumber = object.globalSequenceNumber ?? 0;
     message.channel = object.channel ?? "";
     message.data = object.data ?? new Uint8Array(0);
-    message.globalSequenceNumber = object.globalSequenceNumber ?? 0;
     return message;
   },
 };
