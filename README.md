@@ -103,8 +103,8 @@ sequenceDiagram
     Note right of O: Standard Message Flow
     R1->>O: FromRunner{SendingMessage(localSequenceNumber, channel, data)}
     O->>R2: ToRunner{msg: ReceivingMessage(globalSequenceNumber, channel, data)}
-    R2->>O: FromRunnner{processed: MessageProcessed(channel, globalSequenceNumber)}
-    O->>R1: ToRunner{processed: MessageProcessed(channel, globalSequenceNumber: localSequenceNumber)}
+    R2->>O: FromRunnner{processed: MessageProcessed(globalSequenceNumber, channel)}
+    O->>R1: ToRunner{processed: MessageProcessed(globalSequenceNumber: localSequenceNumber, channel)}
 ```
 
 ### Streaming Message Flow
@@ -116,7 +116,7 @@ sequenceDiagram
     participant R1 as Runner1
 
     Note left of R1: Stream Identification
-    R1->>O: sendStreamMessage() - StreamChunk{id: StreamIdentify(channel, localSequenceNumber, runner)}
+    R1->>O: sendStreamMessage() - StreamChunk{id: StreamIdentify(localSequenceNumber, channel, runner)}
 
     Note left of O: Stream Initiation
     O->>R2: ToRunner{streamMsg: ReceivingStreamMessage(globalSequenceNumber, channel)}
@@ -134,8 +134,8 @@ sequenceDiagram
         R2->>O: chunk handled - SendingStreamControl{streamSequenceNumber}
         O->>R1: chunk handled - ReceivingStreamControl{streamSequenceNumber}
     end
-    R2->>O: FromRunnner{processed: MessageProcessed(channel, globalSequenceNumber)}
-    O->>R1: ToRunner{processed: MessageProcessed(channel, globalSequenceNumber: localSequenceNumber)}
+    R2->>O: FromRunnner{processed: MessageProcessed(globalSequenceNumber, channel)}
+    O->>R1: ToRunner{processed: MessageProcessed(globalSequenceNumber: localSequenceNumber, channel)}
 ```
 
 ### Logging Flow

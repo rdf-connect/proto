@@ -48,8 +48,8 @@ message SendingStreamControl {
 
 // The first message when a runner sends a streaming message to the orchestrator
 message StreamIdentify {
-  string channel = 1;
-  uint32 localSequenceNumber = 2;
+  uint32 localSequenceNumber = 1;
+  string channel = 2;
   string runner = 3;
 }
 
@@ -63,7 +63,7 @@ message StreamChunk {
 }
 
 message MessageProcessed {
-  string channel = 1;
+  uint32 globalSequenceNumber = 1;
+  string channel = 2;
   // identifying the message that is fully processed
-  uint32 globalSequenceNumber = 2;
 }
