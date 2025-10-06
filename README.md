@@ -13,12 +13,11 @@ Full specification detailing the implementations can be found on [here](https://
 
 ### 📡 **Advanced Message Routing**
 - **Channel-Based Routing**: Messages routed through logical channels with sequence numbering
-- **Tick Sequencing**: Built-in message ordering and deduplication support
 - **URI-Based Identification**: Unique component identification system
 
 ### 🌊 **Streaming Data Protocol**
 - **Chunked Streaming**: Efficient streaming of large datasets with identification
-- **Stream Identification**: Each stream has unique channel and tick identifiers
+- **Stream Identification**: Each stream has unique channel and local sequence number identifiers
 - **Data Chunking**: Optimized data transmission with metadata preservation
 
 ### 🔧 **Robust Error Handling**
@@ -183,7 +182,7 @@ sequenceDiagram
 
 ### Performance Optimizations
 - Chunked streaming reduces memory overhead
-- Tick-based sequencing enables efficient message ordering
+- SequenceNumber-based sequencing enables efficient message ordering
 - Channel-based routing minimizes message routing overhead
 
 ### Extensibility
@@ -205,5 +204,4 @@ sequenceDiagram
 ### Error Scenarios
 - **Initialization Failure**: ProcessorInit with error field populated
 - **Processing Errors**: Error messages in message streams
-- **Connection Issues**: Automatic reconnection with tick synchronization
 - **Stream Failures**: Individual stream closure without affecting others
