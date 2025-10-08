@@ -67,8 +67,8 @@ export interface SendingStreamControl {
 
 /** The first message when a runner sends a streaming message to the orchestrator */
 export interface StreamIdentify {
-  channel: string;
   localSequenceNumber: number;
+  channel: string;
   runner: string;
 }
 
@@ -81,10 +81,14 @@ export interface StreamChunk {
   data?: DataChunk | undefined;
 }
 
-export interface MessageProcessed {
-  channel: string;
-  /** identifying the message that is fully processed */
+export interface GlobalAck {
   globalSequenceNumber: number;
+  channel: string;
+}
+
+export interface LocalAck {
+  localSequenceNumber: number;
+  channel: string;
 }
 
 function createBaseError(): Error {
@@ -662,16 +666,16 @@ export const SendingStreamControl: MessageFns<SendingStreamControl> = {
 };
 
 function createBaseStreamIdentify(): StreamIdentify {
-  return { channel: "", localSequenceNumber: 0, runner: "" };
+  return { localSequenceNumber: 0, channel: "", runner: "" };
 }
 
 export const StreamIdentify: MessageFns<StreamIdentify> = {
   encode(message: StreamIdentify, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.channel !== "") {
-      writer.uint32(10).string(message.channel);
-    }
     if (message.localSequenceNumber !== 0) {
-      writer.uint32(16).uint32(message.localSequenceNumber);
+      writer.uint32(8).uint32(message.localSequenceNumber);
+    }
+    if (message.channel !== "") {
+      writer.uint32(18).string(message.channel);
     }
     if (message.runner !== "") {
       writer.uint32(26).string(message.runner);
@@ -687,19 +691,19 @@ export const StreamIdentify: MessageFns<StreamIdentify> = {
       const tag = reader.uint32();
       switch (tag >>> 3) {
         case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          message.channel = reader.string();
-          continue;
-        }
-        case 2: {
-          if (tag !== 16) {
+          if (tag !== 8) {
             break;
           }
 
           message.localSequenceNumber = reader.uint32();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.channel = reader.string();
           continue;
         }
         case 3: {
@@ -721,19 +725,19 @@ export const StreamIdentify: MessageFns<StreamIdentify> = {
 
   fromJSON(object: any): StreamIdentify {
     return {
-      channel: isSet(object.channel) ? globalThis.String(object.channel) : "",
       localSequenceNumber: isSet(object.localSequenceNumber) ? globalThis.Number(object.localSequenceNumber) : 0,
+      channel: isSet(object.channel) ? globalThis.String(object.channel) : "",
       runner: isSet(object.runner) ? globalThis.String(object.runner) : "",
     };
   },
 
   toJSON(message: StreamIdentify): unknown {
     const obj: any = {};
-    if (message.channel !== "") {
-      obj.channel = message.channel;
-    }
     if (message.localSequenceNumber !== 0) {
       obj.localSequenceNumber = Math.round(message.localSequenceNumber);
+    }
+    if (message.channel !== "") {
+      obj.channel = message.channel;
     }
     if (message.runner !== "") {
       obj.runner = message.runner;
@@ -746,8 +750,8 @@ export const StreamIdentify: MessageFns<StreamIdentify> = {
   },
   fromPartial<I extends Exact<DeepPartial<StreamIdentify>, I>>(object: I): StreamIdentify {
     const message = createBaseStreamIdentify();
-    message.channel = object.channel ?? "";
     message.localSequenceNumber = object.localSequenceNumber ?? 0;
+    message.channel = object.channel ?? "";
     message.runner = object.runner ?? "";
     return message;
   },
@@ -829,42 +833,42 @@ export const StreamChunk: MessageFns<StreamChunk> = {
   },
 };
 
-function createBaseMessageProcessed(): MessageProcessed {
-  return { channel: "", globalSequenceNumber: 0 };
+function createBaseGlobalAck(): GlobalAck {
+  return { globalSequenceNumber: 0, channel: "" };
 }
 
-export const MessageProcessed: MessageFns<MessageProcessed> = {
-  encode(message: MessageProcessed, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
-    if (message.channel !== "") {
-      writer.uint32(10).string(message.channel);
-    }
+export const GlobalAck: MessageFns<GlobalAck> = {
+  encode(message: GlobalAck, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
     if (message.globalSequenceNumber !== 0) {
-      writer.uint32(16).uint32(message.globalSequenceNumber);
+      writer.uint32(8).uint32(message.globalSequenceNumber);
+    }
+    if (message.channel !== "") {
+      writer.uint32(18).string(message.channel);
     }
     return writer;
   },
 
-  decode(input: BinaryReader | Uint8Array, length?: number): MessageProcessed {
+  decode(input: BinaryReader | Uint8Array, length?: number): GlobalAck {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === undefined ? reader.len : reader.pos + length;
-    const message = createBaseMessageProcessed();
+    const message = createBaseGlobalAck();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
         case 1: {
-          if (tag !== 10) {
-            break;
-          }
-
-          message.channel = reader.string();
-          continue;
-        }
-        case 2: {
-          if (tag !== 16) {
+          if (tag !== 8) {
             break;
           }
 
           message.globalSequenceNumber = reader.uint32();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.channel = reader.string();
           continue;
         }
       }
@@ -876,31 +880,107 @@ export const MessageProcessed: MessageFns<MessageProcessed> = {
     return message;
   },
 
-  fromJSON(object: any): MessageProcessed {
+  fromJSON(object: any): GlobalAck {
     return {
-      channel: isSet(object.channel) ? globalThis.String(object.channel) : "",
       globalSequenceNumber: isSet(object.globalSequenceNumber) ? globalThis.Number(object.globalSequenceNumber) : 0,
+      channel: isSet(object.channel) ? globalThis.String(object.channel) : "",
     };
   },
 
-  toJSON(message: MessageProcessed): unknown {
+  toJSON(message: GlobalAck): unknown {
     const obj: any = {};
-    if (message.channel !== "") {
-      obj.channel = message.channel;
-    }
     if (message.globalSequenceNumber !== 0) {
       obj.globalSequenceNumber = Math.round(message.globalSequenceNumber);
+    }
+    if (message.channel !== "") {
+      obj.channel = message.channel;
     }
     return obj;
   },
 
-  create<I extends Exact<DeepPartial<MessageProcessed>, I>>(base?: I): MessageProcessed {
-    return MessageProcessed.fromPartial(base ?? ({} as any));
+  create<I extends Exact<DeepPartial<GlobalAck>, I>>(base?: I): GlobalAck {
+    return GlobalAck.fromPartial(base ?? ({} as any));
   },
-  fromPartial<I extends Exact<DeepPartial<MessageProcessed>, I>>(object: I): MessageProcessed {
-    const message = createBaseMessageProcessed();
-    message.channel = object.channel ?? "";
+  fromPartial<I extends Exact<DeepPartial<GlobalAck>, I>>(object: I): GlobalAck {
+    const message = createBaseGlobalAck();
     message.globalSequenceNumber = object.globalSequenceNumber ?? 0;
+    message.channel = object.channel ?? "";
+    return message;
+  },
+};
+
+function createBaseLocalAck(): LocalAck {
+  return { localSequenceNumber: 0, channel: "" };
+}
+
+export const LocalAck: MessageFns<LocalAck> = {
+  encode(message: LocalAck, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.localSequenceNumber !== 0) {
+      writer.uint32(8).uint32(message.localSequenceNumber);
+    }
+    if (message.channel !== "") {
+      writer.uint32(18).string(message.channel);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): LocalAck {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseLocalAck();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 8) {
+            break;
+          }
+
+          message.localSequenceNumber = reader.uint32();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.channel = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): LocalAck {
+    return {
+      localSequenceNumber: isSet(object.localSequenceNumber) ? globalThis.Number(object.localSequenceNumber) : 0,
+      channel: isSet(object.channel) ? globalThis.String(object.channel) : "",
+    };
+  },
+
+  toJSON(message: LocalAck): unknown {
+    const obj: any = {};
+    if (message.localSequenceNumber !== 0) {
+      obj.localSequenceNumber = Math.round(message.localSequenceNumber);
+    }
+    if (message.channel !== "") {
+      obj.channel = message.channel;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<LocalAck>, I>>(base?: I): LocalAck {
+    return LocalAck.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<LocalAck>, I>>(object: I): LocalAck {
+    const message = createBaseLocalAck();
+    message.localSequenceNumber = object.localSequenceNumber ?? 0;
+    message.channel = object.channel ?? "";
     return message;
   },
 };

@@ -16,7 +16,8 @@ export {
     ReceivingStreamControl,
     StreamIdentify,
     StreamChunk,
-    MessageProcessed,
+    GlobalAck,
+    LocalAck,
 } from "./generated/common";
 export { Empty } from "./generated/google/protobuf/empty";
 export * as grpc from "@grpc/grpc-js";

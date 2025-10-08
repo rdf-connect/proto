@@ -33,7 +33,7 @@ message ToRunner {
      * information */
     string pipeline = 6;
 
-    MessageProcessed processed = 7;
+    LocalAck processed = 7;
   }
 }
 
@@ -52,7 +52,7 @@ message FromRunner {
     Close close = 2;
     RunnerIdentify identify = 3;
     SendingMessage msg = 4;
-    MessageProcessed processed = 5;
+    GlobalAck processed = 5;
   }
 }
 

@@ -24,7 +24,8 @@ import {
   Close,
   DataChunk,
   Error,
-  MessageProcessed,
+  GlobalAck,
+  LocalAck,
   ReceivingMessage,
   ReceivingStreamControl,
   ReceivingStreamMessage,
@@ -65,7 +66,7 @@ export interface ToRunner {
    * information
    */
   pipeline?: string | undefined;
-  processed?: MessageProcessed | undefined;
+  processed?: LocalAck | undefined;
 }
 
 /** Tells the orchestrator that the processor is initialized */
@@ -84,7 +85,7 @@ export interface FromRunner {
   close?: Close | undefined;
   identify?: RunnerIdentify | undefined;
   msg?: SendingMessage | undefined;
-  processed?: MessageProcessed | undefined;
+  processed?: GlobalAck | undefined;
 }
 
 function createBaseLogMessage(): LogMessage {
@@ -320,7 +321,7 @@ export const ToRunner: MessageFns<ToRunner> = {
       writer.uint32(50).string(message.pipeline);
     }
     if (message.processed !== undefined) {
-      MessageProcessed.encode(message.processed, writer.uint32(58).fork()).join();
+      LocalAck.encode(message.processed, writer.uint32(58).fork()).join();
     }
     return writer;
   },
@@ -385,7 +386,7 @@ export const ToRunner: MessageFns<ToRunner> = {
             break;
           }
 
-          message.processed = MessageProcessed.decode(reader, reader.uint32());
+          message.processed = LocalAck.decode(reader, reader.uint32());
           continue;
         }
       }
@@ -405,7 +406,7 @@ export const ToRunner: MessageFns<ToRunner> = {
       close: isSet(object.close) ? Close.fromJSON(object.close) : undefined,
       streamMsg: isSet(object.streamMsg) ? ReceivingStreamMessage.fromJSON(object.streamMsg) : undefined,
       pipeline: isSet(object.pipeline) ? globalThis.String(object.pipeline) : undefined,
-      processed: isSet(object.processed) ? MessageProcessed.fromJSON(object.processed) : undefined,
+      processed: isSet(object.processed) ? LocalAck.fromJSON(object.processed) : undefined,
     };
   },
 
@@ -430,7 +431,7 @@ export const ToRunner: MessageFns<ToRunner> = {
       obj.pipeline = message.pipeline;
     }
     if (message.processed !== undefined) {
-      obj.processed = MessageProcessed.toJSON(message.processed);
+      obj.processed = LocalAck.toJSON(message.processed);
     }
     return obj;
   },
@@ -451,7 +452,7 @@ export const ToRunner: MessageFns<ToRunner> = {
       : undefined;
     message.pipeline = object.pipeline ?? undefined;
     message.processed = (object.processed !== undefined && object.processed !== null)
-      ? MessageProcessed.fromPartial(object.processed)
+      ? LocalAck.fromPartial(object.processed)
       : undefined;
     return message;
   },
@@ -610,7 +611,7 @@ export const FromRunner: MessageFns<FromRunner> = {
       SendingMessage.encode(message.msg, writer.uint32(34).fork()).join();
     }
     if (message.processed !== undefined) {
-      MessageProcessed.encode(message.processed, writer.uint32(42).fork()).join();
+      GlobalAck.encode(message.processed, writer.uint32(42).fork()).join();
     }
     return writer;
   },
@@ -659,7 +660,7 @@ export const FromRunner: MessageFns<FromRunner> = {
             break;
           }
 
-          message.processed = MessageProcessed.decode(reader, reader.uint32());
+          message.processed = GlobalAck.decode(reader, reader.uint32());
           continue;
         }
       }
@@ -677,7 +678,7 @@ export const FromRunner: MessageFns<FromRunner> = {
       close: isSet(object.close) ? Close.fromJSON(object.close) : undefined,
       identify: isSet(object.identify) ? RunnerIdentify.fromJSON(object.identify) : undefined,
       msg: isSet(object.msg) ? SendingMessage.fromJSON(object.msg) : undefined,
-      processed: isSet(object.processed) ? MessageProcessed.fromJSON(object.processed) : undefined,
+      processed: isSet(object.processed) ? GlobalAck.fromJSON(object.processed) : undefined,
     };
   },
 
@@ -696,7 +697,7 @@ export const FromRunner: MessageFns<FromRunner> = {
       obj.msg = SendingMessage.toJSON(message.msg);
     }
     if (message.processed !== undefined) {
-      obj.processed = MessageProcessed.toJSON(message.processed);
+      obj.processed = GlobalAck.toJSON(message.processed);
     }
     return obj;
   },
@@ -717,7 +718,7 @@ export const FromRunner: MessageFns<FromRunner> = {
       ? SendingMessage.fromPartial(object.msg)
       : undefined;
     message.processed = (object.processed !== undefined && object.processed !== null)
-      ? MessageProcessed.fromPartial(object.processed)
+      ? GlobalAck.fromPartial(object.processed)
       : undefined;
     return message;
   },

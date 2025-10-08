@@ -103,8 +103,8 @@ sequenceDiagram
     Note right of O: Standard Message Flow
     R1->>O: FromRunner{SendingMessage(localSequenceNumber, channel, data)}
     O->>R2: ToRunner{msg: ReceivingMessage(globalSequenceNumber, channel, data)}
-    R2->>O: FromRunnner{processed: MessageProcessed(globalSequenceNumber, channel)}
-    O->>R1: ToRunner{processed: MessageProcessed(globalSequenceNumber: localSequenceNumber, channel)}
+    R2->>O: FromRunner{processed: GlobalAck(globalSequenceNumber, channel)}
+    O->>R1: ToRunner{processed: LocalAck(localSequenceNumber, channel)}
 ```
 
 ### Streaming Message Flow
@@ -134,8 +134,8 @@ sequenceDiagram
         R2->>O: chunk handled - SendingStreamControl{streamSequenceNumber}
         O->>R1: chunk handled - ReceivingStreamControl{streamSequenceNumber}
     end
-    R2->>O: FromRunnner{processed: MessageProcessed(globalSequenceNumber, channel)}
-    O->>R1: ToRunner{processed: MessageProcessed(globalSequenceNumber: localSequenceNumber, channel)}
+    R2->>O: FromRunner{processed: GlobalAck(globalSequenceNumber, channel)}
+    O->>R1: ToRunner{processed: LocalAck(localSequenceNumber, channel)}
 ```
 
 ### Logging Flow
