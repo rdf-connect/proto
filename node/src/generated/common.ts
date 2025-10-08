@@ -81,11 +81,16 @@ export interface StreamChunk {
   data?: DataChunk | undefined;
 }
 
+/** The processing runner acknowledges that the full message has been handled */
 export interface GlobalAck {
   globalSequenceNumber: number;
   channel: string;
 }
 
+/**
+ * The producings runner is allowed to send a new message.
+ * The consuming runner is finished
+ */
 export interface LocalAck {
   localSequenceNumber: number;
   channel: string;
