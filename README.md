@@ -50,7 +50,8 @@ Full specification detailing the implementations can be found on [here](https://
 - `SendingStreamControl`: Control message for streaming from consumer (contains global or stream sequence number)
 - `StreamIdentify`: First message when runner sends streaming data (channel, local sequence number, runner URI)
 - `StreamChunk`: Wrapper for StreamIdentify or DataChunk messages
-- `MessageProcessed`: Processing acknowledgment with channel and global sequence number
+- `GlobalAck`: Processing acknowledgment with channel and global sequence number
+- `LocalAck`: Processing acknowledgment with channel and local sequence number
 
 #### `service.proto` - Service Interface
 - `LogMessage`: Structured logging with levels, entities, and aliases
