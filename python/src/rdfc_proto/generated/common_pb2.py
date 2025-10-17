@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0c\x63ommon.proto\x12\x04rdfc\"\x16\n\x05\x45rror\x12\r\n\x05\x63\x61use\x18\x01 \x01(\t\"\x18\n\x05\x43lose\x12\x0f\n\x07\x63hannel\x18\x01 \x01(\t\"(\n\x07Message\x12\x0f\n\x07\x63hannel\x18\x01 \x01(\t\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\x0c\"\x10\n\x02Id\x12\n\n\x02id\x18\x01 \x01(\x04\"\x19\n\tDataChunk\x12\x0c\n\x04\x64\x61ta\x18\x01 \x01(\x0c\"6\n\rStreamMessage\x12\x14\n\x02id\x18\x01 \x01(\x0b\x32\x08.rdfc.Id\x12\x0f\n\x07\x63hannel\x18\x02 \x01(\tb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0c\x63ommon.proto\x12\x04rdfc\"\x16\n\x05\x45rror\x12\r\n\x05\x63\x61use\x18\x01 \x01(\t\"\x18\n\x05\x43lose\x12\x0f\n\x07\x63hannel\x18\x01 \x01(\t\"\x19\n\tDataChunk\x12\x0c\n\x04\x64\x61ta\x18\x01 \x01(\x0c\"L\n\x0eSendingMessage\x12\x1b\n\x13localSequenceNumber\x18\x01 \x01(\r\x12\x0f\n\x07\x63hannel\x18\x02 \x01(\t\x12\x0c\n\x04\x64\x61ta\x18\x03 \x01(\x0c\"O\n\x10ReceivingMessage\x12\x1c\n\x14globalSequenceNumber\x18\x01 \x01(\r\x12\x0f\n\x07\x63hannel\x18\x02 \x01(\t\x12\x0c\n\x04\x64\x61ta\x18\x03 \x01(\x0c\"G\n\x16ReceivingStreamMessage\x12\x1c\n\x14globalSequenceNumber\x18\x01 \x01(\r\x12\x0f\n\x07\x63hannel\x18\x02 \x01(\t\"6\n\x16ReceivingStreamControl\x12\x1c\n\x14streamSequenceNumber\x18\x02 \x01(\r\"_\n\x14SendingStreamControl\x12\x1e\n\x14globalSequenceNumber\x18\x01 \x01(\rH\x00\x12\x1e\n\x14streamSequenceNumber\x18\x02 \x01(\rH\x00\x42\x07\n\x05inner\"N\n\x0eStreamIdentify\x12\x1b\n\x13localSequenceNumber\x18\x01 \x01(\r\x12\x0f\n\x07\x63hannel\x18\x02 \x01(\t\x12\x0e\n\x06runner\x18\x03 \x01(\t\"[\n\x0bStreamChunk\x12\"\n\x02id\x18\x01 \x01(\x0b\x32\x14.rdfc.StreamIdentifyH\x00\x12\x1f\n\x04\x64\x61ta\x18\x02 \x01(\x0b\x32\x0f.rdfc.DataChunkH\x00\x42\x07\n\x05inner\":\n\tGlobalAck\x12\x1c\n\x14globalSequenceNumber\x18\x01 \x01(\r\x12\x0f\n\x07\x63hannel\x18\x02 \x01(\t\"8\n\x08LocalAck\x12\x1b\n\x13localSequenceNumber\x18\x01 \x01(\r\x12\x0f\n\x07\x63hannel\x18\x02 \x01(\tb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -35,12 +35,24 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_ERROR']._serialized_end=44
   _globals['_CLOSE']._serialized_start=46
   _globals['_CLOSE']._serialized_end=70
-  _globals['_MESSAGE']._serialized_start=72
-  _globals['_MESSAGE']._serialized_end=112
-  _globals['_ID']._serialized_start=114
-  _globals['_ID']._serialized_end=130
-  _globals['_DATACHUNK']._serialized_start=132
-  _globals['_DATACHUNK']._serialized_end=157
-  _globals['_STREAMMESSAGE']._serialized_start=159
-  _globals['_STREAMMESSAGE']._serialized_end=213
+  _globals['_DATACHUNK']._serialized_start=72
+  _globals['_DATACHUNK']._serialized_end=97
+  _globals['_SENDINGMESSAGE']._serialized_start=99
+  _globals['_SENDINGMESSAGE']._serialized_end=175
+  _globals['_RECEIVINGMESSAGE']._serialized_start=177
+  _globals['_RECEIVINGMESSAGE']._serialized_end=256
+  _globals['_RECEIVINGSTREAMMESSAGE']._serialized_start=258
+  _globals['_RECEIVINGSTREAMMESSAGE']._serialized_end=329
+  _globals['_RECEIVINGSTREAMCONTROL']._serialized_start=331
+  _globals['_RECEIVINGSTREAMCONTROL']._serialized_end=385
+  _globals['_SENDINGSTREAMCONTROL']._serialized_start=387
+  _globals['_SENDINGSTREAMCONTROL']._serialized_end=482
+  _globals['_STREAMIDENTIFY']._serialized_start=484
+  _globals['_STREAMIDENTIFY']._serialized_end=562
+  _globals['_STREAMCHUNK']._serialized_start=564
+  _globals['_STREAMCHUNK']._serialized_end=655
+  _globals['_GLOBALACK']._serialized_start=657
+  _globals['_GLOBALACK']._serialized_end=715
+  _globals['_LOCALACK']._serialized_start=717
+  _globals['_LOCALACK']._serialized_end=773
 # @@protoc_insertion_point(module_scope)

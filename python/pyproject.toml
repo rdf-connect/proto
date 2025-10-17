@@ -1,6 +1,6 @@
 [project]
 name = "rdfc_proto"
-version = "0.0.1"
+version = "1.0.0"
 description = "Python protobuf bindings for RDF-Connect"
 authors = [
     { name = "Ieben Smessaert", email = "ieben.smessaert@ugent.be" }

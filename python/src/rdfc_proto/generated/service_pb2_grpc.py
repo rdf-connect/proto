@@ -5,9 +5,7 @@ import warnings
 
 from . import common_pb2 as common__pb2
 from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
-from . import log_pb2 as log__pb2
-from . import orchestrator_pb2 as orchestrator__pb2
-from . import runner_pb2 as runner__pb2
+from . import service_pb2 as service__pb2
 
 GRPC_GENERATED_VERSION = '1.74.0'
 GRPC_VERSION = grpc.__version__
@@ -40,22 +38,22 @@ class RunnerStub(object):
         """
         self.connect = channel.stream_stream(
                 '/rdfc.Runner/connect',
-                request_serializer=orchestrator__pb2.OrchestratorMessage.SerializeToString,
-                response_deserializer=runner__pb2.RunnerMessage.FromString,
+                request_serializer=service__pb2.FromRunner.SerializeToString,
+                response_deserializer=service__pb2.ToRunner.FromString,
                 _registered_method=True)
         self.sendStreamMessage = channel.stream_stream(
                 '/rdfc.Runner/sendStreamMessage',
-                request_serializer=common__pb2.DataChunk.SerializeToString,
-                response_deserializer=common__pb2.Id.FromString,
+                request_serializer=common__pb2.StreamChunk.SerializeToString,
+                response_deserializer=common__pb2.ReceivingStreamControl.FromString,
                 _registered_method=True)
-        self.receiveStreamMessage = channel.unary_stream(
+        self.receiveStreamMessage = channel.stream_stream(
                 '/rdfc.Runner/receiveStreamMessage',
-                request_serializer=common__pb2.Id.SerializeToString,
+                request_serializer=common__pb2.SendingStreamControl.SerializeToString,
                 response_deserializer=common__pb2.DataChunk.FromString,
                 _registered_method=True)
         self.logStream = channel.stream_unary(
                 '/rdfc.Runner/logStream',
-                request_serializer=log__pb2.LogMessage.SerializeToString,
+                request_serializer=service__pb2.LogMessage.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 _registered_method=True)
 
@@ -75,7 +73,7 @@ class RunnerServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def receiveStreamMessage(self, request, context):
+    def receiveStreamMessage(self, request_iterator, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -92,22 +90,22 @@ def add_RunnerServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'connect': grpc.stream_stream_rpc_method_handler(
                     servicer.connect,
-                    request_deserializer=orchestrator__pb2.OrchestratorMessage.FromString,
-                    response_serializer=runner__pb2.RunnerMessage.SerializeToString,
+                    request_deserializer=service__pb2.FromRunner.FromString,
+                    response_serializer=service__pb2.ToRunner.SerializeToString,
             ),
             'sendStreamMessage': grpc.stream_stream_rpc_method_handler(
                     servicer.sendStreamMessage,
-                    request_deserializer=common__pb2.DataChunk.FromString,
-                    response_serializer=common__pb2.Id.SerializeToString,
+                    request_deserializer=common__pb2.StreamChunk.FromString,
+                    response_serializer=common__pb2.ReceivingStreamControl.SerializeToString,
             ),
-            'receiveStreamMessage': grpc.unary_stream_rpc_method_handler(
+            'receiveStreamMessage': grpc.stream_stream_rpc_method_handler(
                     servicer.receiveStreamMessage,
-                    request_deserializer=common__pb2.Id.FromString,
+                    request_deserializer=common__pb2.SendingStreamControl.FromString,
                     response_serializer=common__pb2.DataChunk.SerializeToString,
             ),
             'logStream': grpc.stream_unary_rpc_method_handler(
                     servicer.logStream,
-                    request_deserializer=log__pb2.LogMessage.FromString,
+                    request_deserializer=service__pb2.LogMessage.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
     }
@@ -136,8 +134,8 @@ class Runner(object):
             request_iterator,
             target,
             '/rdfc.Runner/connect',
-            orchestrator__pb2.OrchestratorMessage.SerializeToString,
-            runner__pb2.RunnerMessage.FromString,
+            service__pb2.FromRunner.SerializeToString,
+            service__pb2.ToRunner.FromString,
             options,
             channel_credentials,
             insecure,
@@ -163,8 +161,8 @@ class Runner(object):
             request_iterator,
             target,
             '/rdfc.Runner/sendStreamMessage',
-            common__pb2.DataChunk.SerializeToString,
-            common__pb2.Id.FromString,
+            common__pb2.StreamChunk.SerializeToString,
+            common__pb2.ReceivingStreamControl.FromString,
             options,
             channel_credentials,
             insecure,
@@ -176,7 +174,7 @@ class Runner(object):
             _registered_method=True)
 
     @staticmethod
-    def receiveStreamMessage(request,
+    def receiveStreamMessage(request_iterator,
             target,
             options=(),
             channel_credentials=None,
@@ -186,11 +184,11 @@ class Runner(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_stream(
-            request,
+        return grpc.experimental.stream_stream(
+            request_iterator,
             target,
             '/rdfc.Runner/receiveStreamMessage',
-            common__pb2.Id.SerializeToString,
+            common__pb2.SendingStreamControl.SerializeToString,
             common__pb2.DataChunk.FromString,
             options,
             channel_credentials,
@@ -217,7 +215,7 @@ class Runner(object):
             request_iterator,
             target,
             '/rdfc.Runner/logStream',
-            log__pb2.LogMessage.SerializeToString,
+            service__pb2.LogMessage.SerializeToString,
             google_dot_protobuf_dot_empty__pb2.Empty.FromString,
             options,
             channel_credentials,

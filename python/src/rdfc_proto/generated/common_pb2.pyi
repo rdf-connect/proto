@@ -17,30 +17,84 @@ class Close(_message.Message):
     channel: str
     def __init__(self, channel: _Optional[str] = ...) -> None: ...
 
-class Message(_message.Message):
-    __slots__ = ("channel", "data")
-    CHANNEL_FIELD_NUMBER: _ClassVar[int]
-    DATA_FIELD_NUMBER: _ClassVar[int]
-    channel: str
-    data: bytes
-    def __init__(self, channel: _Optional[str] = ..., data: _Optional[bytes] = ...) -> None: ...
-
-class Id(_message.Message):
-    __slots__ = ("id",)
-    ID_FIELD_NUMBER: _ClassVar[int]
-    id: int
-    def __init__(self, id: _Optional[int] = ...) -> None: ...
-
 class DataChunk(_message.Message):
     __slots__ = ("data",)
     DATA_FIELD_NUMBER: _ClassVar[int]
     data: bytes
     def __init__(self, data: _Optional[bytes] = ...) -> None: ...
 
-class StreamMessage(_message.Message):
-    __slots__ = ("id", "channel")
-    ID_FIELD_NUMBER: _ClassVar[int]
+class SendingMessage(_message.Message):
+    __slots__ = ("localSequenceNumber", "channel", "data")
+    LOCALSEQUENCENUMBER_FIELD_NUMBER: _ClassVar[int]
     CHANNEL_FIELD_NUMBER: _ClassVar[int]
-    id: Id
+    DATA_FIELD_NUMBER: _ClassVar[int]
+    localSequenceNumber: int
     channel: str
-    def __init__(self, id: _Optional[_Union[Id, _Mapping]] = ..., channel: _Optional[str] = ...) -> None: ...
+    data: bytes
+    def __init__(self, localSequenceNumber: _Optional[int] = ..., channel: _Optional[str] = ..., data: _Optional[bytes] = ...) -> None: ...
+
+class ReceivingMessage(_message.Message):
+    __slots__ = ("globalSequenceNumber", "channel", "data")
+    GLOBALSEQUENCENUMBER_FIELD_NUMBER: _ClassVar[int]
+    CHANNEL_FIELD_NUMBER: _ClassVar[int]
+    DATA_FIELD_NUMBER: _ClassVar[int]
+    globalSequenceNumber: int
+    channel: str
+    data: bytes
+    def __init__(self, globalSequenceNumber: _Optional[int] = ..., channel: _Optional[str] = ..., data: _Optional[bytes] = ...) -> None: ...
+
+class ReceivingStreamMessage(_message.Message):
+    __slots__ = ("globalSequenceNumber", "channel")
+    GLOBALSEQUENCENUMBER_FIELD_NUMBER: _ClassVar[int]
+    CHANNEL_FIELD_NUMBER: _ClassVar[int]
+    globalSequenceNumber: int
+    channel: str
+    def __init__(self, globalSequenceNumber: _Optional[int] = ..., channel: _Optional[str] = ...) -> None: ...
+
+class ReceivingStreamControl(_message.Message):
+    __slots__ = ("streamSequenceNumber",)
+    STREAMSEQUENCENUMBER_FIELD_NUMBER: _ClassVar[int]
+    streamSequenceNumber: int
+    def __init__(self, streamSequenceNumber: _Optional[int] = ...) -> None: ...
+
+class SendingStreamControl(_message.Message):
+    __slots__ = ("globalSequenceNumber", "streamSequenceNumber")
+    GLOBALSEQUENCENUMBER_FIELD_NUMBER: _ClassVar[int]
+    STREAMSEQUENCENUMBER_FIELD_NUMBER: _ClassVar[int]
+    globalSequenceNumber: int
+    streamSequenceNumber: int
+    def __init__(self, globalSequenceNumber: _Optional[int] = ..., streamSequenceNumber: _Optional[int] = ...) -> None: ...
+
+class StreamIdentify(_message.Message):
+    __slots__ = ("localSequenceNumber", "channel", "runner")
+    LOCALSEQUENCENUMBER_FIELD_NUMBER: _ClassVar[int]
+    CHANNEL_FIELD_NUMBER: _ClassVar[int]
+    RUNNER_FIELD_NUMBER: _ClassVar[int]
+    localSequenceNumber: int
+    channel: str
+    runner: str
+    def __init__(self, localSequenceNumber: _Optional[int] = ..., channel: _Optional[str] = ..., runner: _Optional[str] = ...) -> None: ...
+
+class StreamChunk(_message.Message):
+    __slots__ = ("id", "data")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    DATA_FIELD_NUMBER: _ClassVar[int]
+    id: StreamIdentify
+    data: DataChunk
+    def __init__(self, id: _Optional[_Union[StreamIdentify, _Mapping]] = ..., data: _Optional[_Union[DataChunk, _Mapping]] = ...) -> None: ...
+
+class GlobalAck(_message.Message):
+    __slots__ = ("globalSequenceNumber", "channel")
+    GLOBALSEQUENCENUMBER_FIELD_NUMBER: _ClassVar[int]
+    CHANNEL_FIELD_NUMBER: _ClassVar[int]
+    globalSequenceNumber: int
+    channel: str
+    def __init__(self, globalSequenceNumber: _Optional[int] = ..., channel: _Optional[str] = ...) -> None: ...
+
+class LocalAck(_message.Message):
+    __slots__ = ("localSequenceNumber", "channel")
+    LOCALSEQUENCENUMBER_FIELD_NUMBER: _ClassVar[int]
+    CHANNEL_FIELD_NUMBER: _ClassVar[int]
+    localSequenceNumber: int
+    channel: str
+    def __init__(self, localSequenceNumber: _Optional[int] = ..., channel: _Optional[str] = ...) -> None: ...
