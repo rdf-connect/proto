@@ -6,6 +6,8 @@ message Error { string cause = 1; }
 
 message Close { string channel = 1; }
 
+message Cancel { string channel = 1; }
+
 // Central piece of data
 message DataChunk { bytes data = 1; }
 

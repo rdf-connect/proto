@@ -34,6 +34,7 @@ message ToRunner {
     string pipeline = 6;
 
     LocalAck processed = 7;
+    Cancel cancel = 8;
   }
 }
 
@@ -53,6 +54,7 @@ message FromRunner {
     RunnerIdentify identify = 3;
     SendingMessage msg = 4;
     GlobalAck processed = 5;
+    Cancel cancel = 6;
   }
 }
 

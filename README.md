@@ -42,6 +42,7 @@ Full specification detailing the implementations can be found on [here](https://
 #### `common.proto` - Base Protocol Definitions
 - `Error`: Error reporting with cause description
 - `Close`: Channel closure signaling
+- `Cancel`: Channel cancellation signaling
 - `DataChunk`: Raw data chunk for streaming
 - `SendingMessage`: Message sent from runner to orchestrator with channel, data, and local sequence number
 - `ReceivingMessage`: Message received by runner from orchestrator with global sequence number, channel, and data
@@ -56,10 +57,10 @@ Full specification detailing the implementations can be found on [here](https://
 #### `service.proto` - Service Interface
 - `LogMessage`: Structured logging with levels, entities, and aliases
 - `Processor`: Processor definition with URI, configuration, and arguments
-- `ToRunner`: Message container sent to runners (contains processor, start, message, close, stream message, pipeline, or processed)
+- `ToRunner`: Message container sent to runners (contains processor, start, message, close, cancel, stream message, pipeline, or processed)
 - `ProcessorInitialized`: Initialization confirmation with URI and optional error
 - `RunnerIdentify`: Runner identification with URI
-- `FromRunner`: Message container from runners (contains initialized, close, identify, message, or processed)
+- `FromRunner`: Message container from runners (contains initialized, close, cancel, identify, message, or processed)
 - `Runner` Service: Main service interface with 4 RPC methods
 
 
