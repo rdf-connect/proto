@@ -66,6 +66,7 @@ message StreamChunk {
 message GlobalAck {
   uint32 globalSequenceNumber = 1;
   string channel = 2;
+  optional string error = 3;
 }
 
 // The producings runner is allowed to send a new message.
@@ -73,4 +74,5 @@ message GlobalAck {
 message LocalAck {
   uint32 localSequenceNumber = 1;
   string channel = 2;
+  optional string error = 3;
 }
