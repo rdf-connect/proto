@@ -85,6 +85,7 @@ export interface StreamChunk {
 export interface GlobalAck {
   globalSequenceNumber: number;
   channel: string;
+  error?: string | undefined;
 }
 
 /**
@@ -94,6 +95,7 @@ export interface GlobalAck {
 export interface LocalAck {
   localSequenceNumber: number;
   channel: string;
+  error?: string | undefined;
 }
 
 function createBaseError(): Error {
@@ -839,7 +841,7 @@ export const StreamChunk: MessageFns<StreamChunk> = {
 };
 
 function createBaseGlobalAck(): GlobalAck {
-  return { globalSequenceNumber: 0, channel: "" };
+  return { globalSequenceNumber: 0, channel: "", error: undefined };
 }
 
 export const GlobalAck: MessageFns<GlobalAck> = {
@@ -849,6 +851,9 @@ export const GlobalAck: MessageFns<GlobalAck> = {
     }
     if (message.channel !== "") {
       writer.uint32(18).string(message.channel);
+    }
+    if (message.error !== undefined) {
+      writer.uint32(26).string(message.error);
     }
     return writer;
   },
@@ -876,6 +881,14 @@ export const GlobalAck: MessageFns<GlobalAck> = {
           message.channel = reader.string();
           continue;
         }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.error = reader.string();
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -889,6 +902,7 @@ export const GlobalAck: MessageFns<GlobalAck> = {
     return {
       globalSequenceNumber: isSet(object.globalSequenceNumber) ? globalThis.Number(object.globalSequenceNumber) : 0,
       channel: isSet(object.channel) ? globalThis.String(object.channel) : "",
+      error: isSet(object.error) ? globalThis.String(object.error) : undefined,
     };
   },
 
@@ -900,6 +914,9 @@ export const GlobalAck: MessageFns<GlobalAck> = {
     if (message.channel !== "") {
       obj.channel = message.channel;
     }
+    if (message.error !== undefined) {
+      obj.error = message.error;
+    }
     return obj;
   },
 
@@ -910,12 +927,13 @@ export const GlobalAck: MessageFns<GlobalAck> = {
     const message = createBaseGlobalAck();
     message.globalSequenceNumber = object.globalSequenceNumber ?? 0;
     message.channel = object.channel ?? "";
+    message.error = object.error ?? undefined;
     return message;
   },
 };
 
 function createBaseLocalAck(): LocalAck {
-  return { localSequenceNumber: 0, channel: "" };
+  return { localSequenceNumber: 0, channel: "", error: undefined };
 }
 
 export const LocalAck: MessageFns<LocalAck> = {
@@ -925,6 +943,9 @@ export const LocalAck: MessageFns<LocalAck> = {
     }
     if (message.channel !== "") {
       writer.uint32(18).string(message.channel);
+    }
+    if (message.error !== undefined) {
+      writer.uint32(26).string(message.error);
     }
     return writer;
   },
@@ -952,6 +973,14 @@ export const LocalAck: MessageFns<LocalAck> = {
           message.channel = reader.string();
           continue;
         }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.error = reader.string();
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -965,6 +994,7 @@ export const LocalAck: MessageFns<LocalAck> = {
     return {
       localSequenceNumber: isSet(object.localSequenceNumber) ? globalThis.Number(object.localSequenceNumber) : 0,
       channel: isSet(object.channel) ? globalThis.String(object.channel) : "",
+      error: isSet(object.error) ? globalThis.String(object.error) : undefined,
     };
   },
 
@@ -976,6 +1006,9 @@ export const LocalAck: MessageFns<LocalAck> = {
     if (message.channel !== "") {
       obj.channel = message.channel;
     }
+    if (message.error !== undefined) {
+      obj.error = message.error;
+    }
     return obj;
   },
 
@@ -986,6 +1019,7 @@ export const LocalAck: MessageFns<LocalAck> = {
     const message = createBaseLocalAck();
     message.localSequenceNumber = object.localSequenceNumber ?? 0;
     message.channel = object.channel ?? "";
+    message.error = object.error ?? undefined;
     return message;
   },
 };
